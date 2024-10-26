@@ -5,7 +5,7 @@ from django.utils import timezone
 import uuid
 
 
-class CustomUserManager():
+class CustomUserManager(BaseUserManager):
     def create_user(self, email, first_name, last_name, phone_number, password=None, **extra_fields):
         if not email:
             raise ValueError("The Email field must be set")
@@ -58,9 +58,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['email', 'first_name', 'last_name', 'phone_number']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
 
 
+    class Meta:
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"
 
     def __str__(self):
         return f'{self.first_name} {self.last_name} [{self.email}]'
