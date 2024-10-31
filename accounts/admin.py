@@ -12,6 +12,7 @@ class CustomUserAdmin(UserAdmin):
     list_display = [
         'email', 'first_name', 'last_name', 'username', 'phone_number', 'role', 'is_active',
     ]
+    
     fieldsets = ((None, {"fields": ('email', 'first_name', 'last_name', 'username', 'role', 'phone_number')}),)     # edit
     add_fieldsets = UserAdmin.add_fieldsets + ((None, {"fields": ('email', 'first_name', 'last_name', 'role', 'phone_number')}),)
 

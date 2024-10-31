@@ -27,8 +27,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # 3rd-party apps
+    'rest_framework',
+
     # local
-    'accounts'
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -40,6 +43,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {}
 
 ROOT_URLCONF = 'lagbuy.urls'
 
