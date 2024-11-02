@@ -1,8 +1,9 @@
 from pathlib import Path
+import sys, os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+# sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -15,7 +16,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-AUTH_USER_MODEL = 'accounts.CustomUser'
+AUTH_USER_MODEL = 'users.CustomUser'
 
 # Application definition
 
@@ -30,9 +31,11 @@ INSTALLED_APPS = [
     # 3rd-party apps
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt',
 
     # local
-    'accounts',
+    'apps.users',
+    'apps.userauth'
 ]
 
 MIDDLEWARE = [
@@ -46,7 +49,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-REST_FRAMEWORK = {}
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
 
 CORS_ORIGIN_WHITELIST = (
     'http://localhost:3000',
