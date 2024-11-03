@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys, os
+from apps.userauth.settings import *
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +15,10 @@ SECRET_KEY = 'django-insecure-!!24)4rc9u^pu*$j-i33e&40@%j7124lgyn6a*06&sfp_j(_lg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+APPEND_SLASH = True        #
+MEDIA_URL = '/media/'           #
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')        #
+
 ALLOWED_HOSTS = []
 
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -27,11 +32,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     # 3rd-party apps
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
+    'dj_rest_auth',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'dj_rest_auth.registration',
 
     # local
     'apps.users',
@@ -47,10 +59,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',             #
+]
+
+AUTHENTICATION_BACKENDS = [
+    'allauth.account.auth_backends.AuthenticationBackend',      #
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',     #
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
@@ -75,6 +94,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.request',   #
             ],
         },
     },

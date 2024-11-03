@@ -43,7 +43,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     password_hash = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
     role = models.CharField(max_length=10, default='buyer')
-    image = models.URLField(null=True)
+    image = models.ImageField(upload_to='profile_image/', null=True, blank=True)
     address = models.TextField(null=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
