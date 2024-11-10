@@ -1,4 +1,5 @@
 from django.db import models
+from apps.users.models import CustomUser
 
 # TODO: Update the Order model when other models are created
 
@@ -17,7 +18,7 @@ class Order(models.Model):
         CANCELLED = "CANCELLED", "Cancelled"
 
     id = models.AutoField(primary_key=True)
-    buyer = models.ForeignKey("users.User", on_delete=models.CASCADE)
+    buyer = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     coupon = models.ForeignKey("coupons.Coupon", on_delete=models.CASCADE)
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2)
