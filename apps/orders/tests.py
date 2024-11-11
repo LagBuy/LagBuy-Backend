@@ -103,6 +103,7 @@ class OrderAPITest(TestCase):
         cls.order.products.add(cls.product)
 
     def setUp(self):
+        self.client = APIClient()
         self.client.force_authenticate(user=self.buyer)
 
     def test_create_order(self):
@@ -155,3 +156,34 @@ class OrderAPITest(TestCase):
         }
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_create_order_unauthenticated(self):
+        """Test that unauthenticated users cannot create an order."""
+        self.client.force_authenticate(user=None)
+        url = reverse_lazy("orders")
+        data = {
+            "buyer": str(self.buyer.id),
+            "seller": str(self.seller.id),
+            "products": [str(self.product.id)],
+            "delivery_address": "123 Test St",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_order_unauthenticated(self):
+        """Test that unauthenticated users cannot retrieve an order."""
+        self.client.force_authenticate(user=None)
+        url = reverse_lazy("order-by-id", args=[self.order.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_order_status_unauthenticated(self):
+        """Test that unauthenticated users cannot update the order status."""
+        self.client.force_authenticate(user=None)
+        url = reverse_lazy("update-order", args=[self.order.id])
+        data = {
+            "delivery_status": Order.DeliveryStatus.SHIPPED,
+            "payment_status": Order.PaymentStatus.PAID,
+        }
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
