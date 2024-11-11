@@ -66,3 +66,12 @@ class GetAllProducts(APIView):
 
             return error_response("Internal server error",
                                   status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# class CreateProducts(APIView):
+#     """Create product class"""
+#
+#     def create(self, request, *args, **kwargs):
+#         """Create method for creating new product"""
+#         try:
+#             products = Product.objects.all()
+#
