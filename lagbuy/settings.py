@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "dj_rest_auth.registration",
+    "drf_spectacular",
     # local
     "apps.users",
     "apps.userauth",
@@ -74,6 +75,13 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "EXCEPTION_HANDLER": "common.utils.custom_exception_handler.custom_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "LagBuy Backend Project",
+    "DESCRIPTION": "Here is the documentation for the backend project",
+    "VERSION": "1.0.0",
 }
 
 CORS_ORIGIN_WHITELIST = (
