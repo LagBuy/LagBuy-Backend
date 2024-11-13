@@ -38,7 +38,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    username = models.CharField(null=True, max_length=50)
+    username = models.CharField(null=True, max_length=50, unique=True)
     email = models.EmailField(max_length=100, unique=True)
     password_hash = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
