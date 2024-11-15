@@ -44,7 +44,7 @@ class CartAPITest(TestCase):
 
     def test_get_cart(self):
         """Test retrieving the cart."""
-        url = reverse_lazy("cart-detail", args=[self.cart.id])
+        url = reverse_lazy("cart-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["user"], self.user.id)
@@ -83,7 +83,7 @@ class CartAPITest(TestCase):
     def test_get_cart_unauthenticated(self):
         """Test that unauthenticated users cannot retrieve the cart."""
         self.client.force_authenticate(user=None)
-        url = reverse_lazy("cart-detail", args=[self.cart.id])
+        url = reverse_lazy("cart-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
