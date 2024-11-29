@@ -1,3 +1,4 @@
+# contains specific settings for the user authentication
 
 REST_AUTH = {
     'USE_JWT': True,

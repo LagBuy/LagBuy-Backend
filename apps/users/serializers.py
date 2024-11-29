@@ -3,8 +3,11 @@ from rest_framework import serializers
 from .models import CustomUser
 
 class CustomUserSerializer(serializers.ModelSerializer):
+    """Custom user serializer class"""
     class Meta:
+        model = CustomUser
         fields = (
+            'id',
             'first_name',
             'last_name',
             'username',
@@ -19,6 +22,10 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'is_active',
             'is_staff',
         )
-        model = CustomUser
-
-# serialize relationship fields
+        read_only_fields = [
+            'id',
+            'email',
+            'created_at',
+            'updated_at',
+            'is_staff',
+        ]
