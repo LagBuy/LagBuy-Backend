@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.products.models import Product
 from apps.users.models import CustomUser
 
-from .models import Order
+from .models import Order, OrderItem
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -42,20 +42,26 @@ class OrderModelTest(TestCase):
         cls.order = Order.objects.create(
             buyer=cls.buyer, seller=cls.seller, delivery_address="123 Test St"
         )
-        cls.order.products.add(cls.product)
+        cls.order_item = OrderItem.objects.create(
+            order=cls.order, product=cls.product, quantity=2
+        )
 
     def test_order_creation(self):
         """Test that an order is created successfully."""
         self.assertEqual(self.order.buyer, self.buyer)
         self.assertEqual(self.order.seller, self.seller)
         self.assertEqual(self.order.delivery_address, "123 Test St")
-        self.assertEqual(self.order.total_price, 100.0)
-        self.assertEqual(self.order.delivery_fee, 5.0)
-        self.assertIn(self.product, self.order.products.all())
+        self.assertEqual(self.order.total_price, 200.0)
+        self.assertEqual(self.order.delivery_fee, 10.0)
+        self.assertIn(self.order_item, self.order.items.all())
 
     def test_order_str(self):
         """Test the string representation of the order."""
         self.assertEqual(str(self.order), f"Order - {self.order.id} by {self.buyer}")
+
+    def test_order_item_str(self):
+        """Test the string representation of the order item."""
+        self.assertEqual(str(self.order_item), "2 x Test Product")
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -100,7 +106,9 @@ class OrderAPITest(TestCase):
         cls.order = Order.objects.create(
             buyer=cls.buyer, seller=cls.seller, delivery_address="123 Test St"
         )
-        cls.order.products.add(cls.product)
+        cls.order_item = OrderItem.objects.create(
+            order=cls.order, product=cls.product, quantity=2
+        )
 
     def setUp(self):
         self.client = APIClient()
@@ -112,7 +120,9 @@ class OrderAPITest(TestCase):
         data = {
             "buyer": str(self.buyer.id),
             "seller": str(self.seller.id),
-            "products": [str(self.product.id)],
+            "items": [
+                {"product": str(self.product.id), "quantity": 2, "coupon": "DISCOUNT10"}
+            ],
             "delivery_address": "123 Test St",
         }
         response = self.client.post(url, data, format="json")
@@ -164,7 +174,9 @@ class OrderAPITest(TestCase):
         data = {
             "buyer": str(self.buyer.id),
             "seller": str(self.seller.id),
-            "products": [str(self.product.id)],
+            "items": [
+                {"product": str(self.product.id), "quantity": 2, "coupon": "DISCOUNT10"}
+            ],
             "delivery_address": "123 Test St",
         }
         response = self.client.post(url, data, format="json")

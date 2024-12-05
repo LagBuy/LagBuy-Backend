@@ -1,9 +1,11 @@
 import uuid
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
+
 from apps.products.models import Product
 from apps.users.models import CustomUser
-from decimal import Decimal
 
 
 class Order(models.Model):
@@ -32,7 +34,6 @@ class Order(models.Model):
     seller = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, related_name="sales"
     )
-    products = models.ManyToManyField(Product, related_name="orders")
     payment_status = models.CharField(
         max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
     )
@@ -46,7 +47,7 @@ class Order(models.Model):
     @property
     def total_price(self):
         """Calculate the total price of the order."""
-        return sum([product.price for product in self.products.all()])
+        return sum([item.total_price for item in self.items.all()])
 
     @property
     def delivery_fee(self):
@@ -60,3 +61,21 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order - {self.id} by {self.buyer}"
+
+
+class OrderItem(models.Model):
+    """Model representing an item in an order."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    coupon = models.CharField(max_length=50, blank=True, null=True)
+
+    @property
+    def total_price(self):
+        """Calculate the total price for this order item."""
+        return self.product.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
