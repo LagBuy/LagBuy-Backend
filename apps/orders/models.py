@@ -31,9 +31,6 @@ class Order(models.Model):
     buyer = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, related_name="orders"
     )
-    seller = models.ForeignKey(
-        CustomUser, on_delete=models.CASCADE, related_name="sales"
-    )
     payment_status = models.CharField(
         max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
     )
@@ -66,7 +63,9 @@ class Order(models.Model):
 class OrderItem(models.Model):
     """Model representing an item in an order."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)

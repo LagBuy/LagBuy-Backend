@@ -2,12 +2,15 @@ import logging
 
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils.responses import error_response, success_response
 
-from .models import Order
-from .serializers import OrderSerializer, OrderStatusUpdateSerializer
+from .models import Order, OrderItem
+from .permissions import IsSeller
+from .serializers import (OrderSerializer, OrderStatusUpdateSerializer,
+                          SellerOrderSerializer)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,9 @@ class OrderCreateView(APIView):
     def post(self, request, *args, **kwargs):
         """Method to create an order"""
         try:
-            serializer = OrderSerializer(data=request.data)
+            serializer = OrderSerializer(
+                data=request.data, context={"request": request}
+            )
             if serializer.is_valid():
                 serializer.save()
                 return success_response(
@@ -94,5 +99,27 @@ class OrderStatusUpdateView(APIView):
             logger.error(f"Error updating order status: {e}")
             return error_response(
                 message="An error occurred while updating the order status.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class SellerOrderListView(APIView):
+    """View to retrieve orders for the seller's products"""
+
+    permission_classes = [IsAuthenticated, IsSeller]
+
+    def get(self, request, *args, **kwargs):
+        """Method to retrieve orders for the seller's products"""
+        try:
+            seller = request.user
+            orders = Order.objects.filter(items__product__seller=seller).distinct()
+            serializer = SellerOrderSerializer(
+                orders, many=True, context={"request": request}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error retrieving seller orders: {e}")
+            return error_response(
+                message="An error occurred while retrieving the orders.",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

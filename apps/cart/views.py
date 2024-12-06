@@ -15,9 +15,7 @@ class CartViewSet(viewsets.ModelViewSet):
         return self.queryset.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        cart = self.get_queryset().first()
-        if not cart:
-            cart = Cart.objects.create(user=request.user)
+        cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -29,4 +27,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete"]
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+        cart = Cart.objects.filter(user=self.request.user).first()
+        if not cart:
+            return CartItem.objects.none()
+        return self.queryset.filter(cart=cart)
