@@ -5,6 +5,7 @@ from apps.users.models import CustomUser
 
 
 class CustomRegisterSerializer(RegisterSerializer):
+    """custom register serializer used by dj-rest-auth"""
     first_name = serializers.CharField(max_length=50, required=True)
     last_name = serializers.CharField(max_length=50, required=True)
     phone_number = serializers.CharField(max_length=20, required=True)

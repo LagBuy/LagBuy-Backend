@@ -6,7 +6,9 @@ import uuid
 
 
 class CustomUserManager(BaseUserManager):
+    """User manager for the custom user"""
     def create_user(self, email, first_name, last_name, phone_number, password=None, **extra_fields):
+        """Create a custom user"""
         if not email:
             raise ValueError("The Email field must be set")
         if not first_name:
@@ -23,6 +25,7 @@ class CustomUserManager(BaseUserManager):
         return user
     
     def create_superuser(self, email, first_name, last_name, phone_number, password=None, **extra_fields):
+        """Create a super user"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -35,6 +38,7 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    """Custom user class"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
@@ -57,6 +61,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
+    """Custom default fields"""
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
 
@@ -66,5 +71,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = "User Profiles"
 
     def __str__(self):
+        """object return string"""
         return f'{self.first_name} {self.last_name} [{self.email}]'
 
