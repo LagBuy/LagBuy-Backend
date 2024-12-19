@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.products.models import Product
 from apps.users.models import CustomUser
 
-from .models import Order
+from .models import Order, OrderItem
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -30,6 +30,7 @@ class OrderModelTest(TestCase):
             first_name="Seller",
             last_name="User",
             phone_number="0987654321",
+            role="seller",
         )
         cls.product = Product.objects.create(
             name="Test Product",
@@ -40,22 +41,27 @@ class OrderModelTest(TestCase):
             seller=cls.seller,
         )
         cls.order = Order.objects.create(
-            buyer=cls.buyer, seller=cls.seller, delivery_address="123 Test St"
+            buyer=cls.buyer, delivery_address="123 Test St"
         )
-        cls.order.products.add(cls.product)
+        cls.order_item = OrderItem.objects.create(
+            order=cls.order, product=cls.product, quantity=2
+        )
 
     def test_order_creation(self):
         """Test that an order is created successfully."""
         self.assertEqual(self.order.buyer, self.buyer)
-        self.assertEqual(self.order.seller, self.seller)
         self.assertEqual(self.order.delivery_address, "123 Test St")
-        self.assertEqual(self.order.total_price, 100.0)
-        self.assertEqual(self.order.delivery_fee, 5.0)
-        self.assertIn(self.product, self.order.products.all())
+        self.assertEqual(self.order.total_price, 200.0)
+        self.assertEqual(self.order.delivery_fee, 10.0)
+        self.assertIn(self.order_item, self.order.items.all())
 
     def test_order_str(self):
         """Test the string representation of the order."""
         self.assertEqual(str(self.order), f"Order - {self.order.id} by {self.buyer}")
+
+    def test_order_item_str(self):
+        """Test the string representation of the order item."""
+        self.assertEqual(str(self.order_item), "2 x Test Product")
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -80,6 +86,7 @@ class OrderAPITest(TestCase):
             first_name="Seller",
             last_name="User",
             phone_number="0987654321",
+            role="seller",
         )
         cls.admin = CustomUser.objects.create_superuser(
             username="admin",
@@ -98,9 +105,35 @@ class OrderAPITest(TestCase):
             seller=cls.seller,
         )
         cls.order = Order.objects.create(
-            buyer=cls.buyer, seller=cls.seller, delivery_address="123 Test St"
+            buyer=cls.buyer, delivery_address="123 Test St"
         )
-        cls.order.products.add(cls.product)
+        cls.order_item = OrderItem.objects.create(
+            order=cls.order, product=cls.product, quantity=2
+        )
+
+        cls.other_seller = CustomUser.objects.create_user(
+            username="other_seller",
+            password="password",
+            email="other@example.com",
+            first_name="Other",
+            last_name="Seller",
+            phone_number="1234567890",
+            role="seller",
+        )
+        cls.other_product = Product.objects.create(
+            name="Other Product",
+            price=100.0,
+            images=[],
+            description="Other Description",
+            stock_quantity=10,
+            seller=cls.other_seller,
+        )
+        cls.other_order = Order.objects.create(
+            buyer=cls.buyer, delivery_address="123 Test St"
+        )
+        cls.other_order_item = OrderItem.objects.create(
+            order=cls.other_order, product=cls.other_product, quantity=2
+        )
 
     def setUp(self):
         self.client = APIClient()
@@ -110,16 +143,15 @@ class OrderAPITest(TestCase):
         """Test creating an order."""
         url = reverse_lazy("orders")
         data = {
-            "buyer": str(self.buyer.id),
-            "seller": str(self.seller.id),
-            "products": [str(self.product.id)],
+            "items": [
+                {"product": str(self.product.id), "quantity": 2, "coupon": "DISCOUNT10"}
+            ],
             "delivery_address": "123 Test St",
         }
         response = self.client.post(url, data, format="json")
-        order_data = response.data["data"]
+        order_data = response.data.get("data")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(order_data["buyer"], self.buyer.id)
-        self.assertEqual(order_data["seller"], self.seller.id)
         self.assertEqual(order_data["delivery_address"], "123 Test St")
 
     def test_get_order(self):
@@ -130,7 +162,6 @@ class OrderAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(order_data["id"], str(self.order.id))
         self.assertEqual(order_data["buyer"], self.buyer.id)
-        self.assertEqual(order_data["seller"], self.seller.id)
         self.assertEqual(order_data["delivery_address"], "123 Test St")
 
     def test_update_order_status(self):
@@ -162,9 +193,9 @@ class OrderAPITest(TestCase):
         self.client.force_authenticate(user=None)
         url = reverse_lazy("orders")
         data = {
-            "buyer": str(self.buyer.id),
-            "seller": str(self.seller.id),
-            "products": [str(self.product.id)],
+            "items": [
+                {"product": str(self.product.id), "quantity": 2, "coupon": "DISCOUNT10"}
+            ],
             "delivery_address": "123 Test St",
         }
         response = self.client.post(url, data, format="json")
@@ -186,4 +217,44 @@ class OrderAPITest(TestCase):
             "payment_status": Order.PaymentStatus.PAID,
         }
         response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_seller_can_view_their_orders(self):
+        """Test that a seller can view orders for their products."""
+        self.client.force_authenticate(user=self.seller)
+        url = reverse_lazy("seller-orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], str(self.order.id))
+        self.assertEqual(len(response.data[0]["items"]), 1)
+        self.assertEqual(
+            str(response.data[0]["items"][0]["product"]), str(self.product.id)
+        )
+
+    def test_seller_cannot_view_other_seller_orders(self):
+        """Test that a seller cannot view orders for other seller's products."""
+        self.client.force_authenticate(user=self.seller)
+        url = reverse_lazy("seller-orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], str(self.order.id))
+        self.assertEqual(len(response.data[0]["items"]), 1)
+        self.assertEqual(
+            str(response.data[0]["items"][0]["product"]), str(self.product.id)
+        )
+
+    def test_non_seller_cannot_view_seller_orders(self):
+        """Test that non-sellers cannot view orders for seller's products."""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("seller-orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_cannot_view_seller_orders(self):
+        """Test that unauthenticated users cannot view orders for seller's products."""
+        self.client.force_authenticate(user=None)
+        url = reverse_lazy("seller-orders")
+        response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
