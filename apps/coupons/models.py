@@ -22,7 +22,6 @@ class Coupon(models.Model):
     valid_to = models.DateTimeField()
     usage_limit = models.PositiveIntegerField(null=True)
     used_count = models.PositiveIntegerField(default=0)
-    #status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

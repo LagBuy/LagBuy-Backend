@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .models import Coupon
 from .serializers import CouponSerializer
 from common.utils.responses import success_response, error_response
+from apps.userauth.permissions import IsSeller
+from apps.products.models import Product
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +18,54 @@ class VerifyCouponView(APIView):
     # TODO - Check that the coupon has not expired,
     # - it is applied to the valid product,
     # - it meets the order quantity requirements and other requirements
-    pass
+    def get(self, request, *args, **kwargs):
+        """Return a success or error response
+        if the coupon is valid or not"""
+        data = request.data
+        if not data:
+            return error_response("No data provided",
+                                  status.HTTP_400_BAD_REQUEST)
+        
+        code = data.get('code', None)
+        product_id = data.get('product_id', None)
+        if not code:
+            return error_response("NO coupon code provided", status.HTTP_400_BAD_REQUEST)
+        elif not product_id:
+            return error_response("Product ID not provided", status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            """get coupon and product"""
+            coupon = Coupon.objects.get(code=code)
+            product = Product.objects.get(id=product_id)
+        except Coupon.DoesNotExist:
+            return error_response("Invalid coupon code", status.HTTP_404_NOT_FOUND)
+        except Product.DoesNotExist:
+            return error_response("Product not found", status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Internal Server Error while verifying coupon: {str(e)}")
+            print(f"Error while verifying coupon: {str(e)}")
+            return error_response("Internal Server Error",
+                                  status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not coupon.status:
+                return error_response(
+                    "Coupon has either expired or has reached it's usage limit",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                    )
+        """Ensure that the coupon is valid for the product it is applied on"""
+        coupon_products = coupon.products
+        if product in coupon_products:
+            # TODO - Add condition to check and verify min and max order quantity
+            return success_response("Valid Coupon")
+        
+        return error_response(
+            "Coupon could not be verified",
+            status.HTTP_400_BAD_REQUEST
+        )
+
 
 class CouponDetailView(APIView):
     """Get coupon by ID"""
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     
     def get(self, request, code, *args, **kwargs):
         """Get coupon by the unique coupon code"""
@@ -39,6 +84,8 @@ class CouponDetailView(APIView):
             return error_response("Coupon not found", status.HTTP_404_NOT_FOUND)
         except Exception as e:
             """Catch any unexpected exception"""
+            print(f"Error while getting coupon datails: {str(e)}")
+            logger.error(f"Internal Server Error while getting coupon details: {e}")
             return error_response("Interner Server Error while fetching coupon",
                                   status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -46,7 +93,7 @@ class CouponDetailView(APIView):
 
 class CouponListView(APIView):
     """Get a list of all coupon"""
-    permission_class = [IsAdminUser]
+    permission_class = [IsAuthenticated, IsAdminUser]
     
     def get(self, request, *args, **kwargs):
         """Get all coupons"""
@@ -60,7 +107,6 @@ class CouponListView(APIView):
             """Log exception details"""
             logger.error(f"Internal Server Error while fetching coupon: {str(e)}")
             print(f"Error while fetching coupon: {str(e)}")
-
             return error_response("Internal Server Error while fetching coupon", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -71,7 +117,7 @@ class SellerCouponListCreateView(APIView):
     def get(self, request, *args, **kwargs):
         """Get all coupon created by a seller"""
         try:
-            coupons = Coupon.objects.get(seller=request.user)
+            coupons = Coupon.objects.filter(seller=request.user)
             serializer = CouponSerializer(coupons, many=True)
             return success_response(serializer.data, "Coupons fetched successfully")
         except Coupon.DoesNotExist:
@@ -83,14 +129,40 @@ class SellerCouponListCreateView(APIView):
             return error_response("Internal Serner Error while getting coupon", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def post(self, request, *args, **kwargs):
-        pass
-    
+        """Method to create a coupon"""
+        try:
+            data = request.data
+            if not data:
+                return error_response("No data provided",
+                                      status.HTTP_400_BAD_REQUEST)
+            """Ensure that the seller is the logged in user"""
+            data['seller'] = request.user
+            serializer = CouponSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return success_response(
+                    data=serializer.data,
+                    message="Coupon created successfully.",
+                    status_code=status.HTTP_201_CREATED,
+                )
+            return error_response(
+                message=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            print(f"Error creating coupon: {str(e)}")
+            logger.error(f"Error creating coupon: {e}")
+            return error_response(
+                message="Internal Server Error occured while creating the coupon",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class SellerCouponDetailUpdateDeleteView(APIView):
     """Seller can view details of a coupon, update and delete it"""
-    permission_classes = [] # TODO - Add permission class to allow only seller to access all their created coupon
+    permission_classes = [IsSeller]
     
+    # TODO - Add condition to ensure user has object permission
     def get(self, request, code, *args, **kwargs):
         """Get coupon by the unique coupon code"""
         if not code:
@@ -108,13 +180,66 @@ class SellerCouponDetailUpdateDeleteView(APIView):
             return error_response("Coupon not found", status.HTTP_404_NOT_FOUND)
         except Exception as e:
             """Catch any unexpected exception"""
-            return error_response("Interner Server Error while fetching coupon",
+            print(f"Error while fetching coupon: {str(e)}")
+            logger.error(f"Interner Server Error while fetching seller coupon: {e}")
+            return error_response("Interner Server Error while fetching seller coupon",
                                   status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, code, *args, **kwargs):
         """Seller update coupon they created"""
+        if not code:
+            return error_response("No coupon code provided",
+                                  status_code=status.HTTP_400_BAD_REQUEST)
+        try:
+            coupon = Coupon.objects.get(code=code)
+            data = request.data
+            if not data:
+                return error_response("No data provided",
+                                      status.HTTP_400_BAD_REQUEST)
+            """Ensure the seller field cannot be changed"""
+            data.pop('seller', None)
+            serializer = CouponSerializer(coupon, data=data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return success_response(
+                    data=serializer.data,
+                    message="Coupon updated successfully.",
+                )
+            return error_response(
+                message=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        except Coupon.DoesNotExist:
+            return error_response(
+                message="Coupon not found", status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"Error while updating coupon: {str(e)}")
+            logger.error(f"Internal Server Error updating coupon: {e}")
+            return error_response(
+                message="Internal Server Error occured while creating the coupon",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         pass
 
-    def delete():
+    def delete(self, request, code, *args, **kwargs):
         """Seller delete coupon they created"""
-        pass
+        if not code:
+            return error_response("No coupon code provided",
+                                  status_code=status.HTTP_400_BAD_REQUEST)
+        try:
+            coupon = Coupon.objects.get(code=code)
+            coupon.delete()
+            return success_response(
+                message="Coupon deleted successfully.",
+                status_code=status.HTTP_204_NO_CONTENT
+                )
+        except Coupon.DoesNotExist:
+            return error_response("Coupon not found", status_code=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error while deleting coupon: {str(e)}")
+            logger.error(f"Internal Server Error occured while deleting coupon: {e}")
+            return error_response(
+                message="Internal Server Error occured while deleting coupon",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
