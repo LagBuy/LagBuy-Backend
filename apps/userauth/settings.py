@@ -1,4 +1,9 @@
 # contains specific settings for the user authentication
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+}
 
 REST_AUTH = {
     'USE_JWT': True,

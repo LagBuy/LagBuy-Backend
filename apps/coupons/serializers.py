@@ -38,7 +38,7 @@ class CouponSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validate the coupon data"""
         if data.get("valid_from", None) is not None and data["valid_to"] < data["valid_from"]:
-            raise serializers.ValidationError("Valid to has to be a later date than valdi from")
+            raise serializers.ValidationError("'Valid to' has to be a later date than 'valid from'")
         if data["valid_to"] <= timezone.now():
             raise serializers.ValidationError("Invalid Expiration date. Make sure you choose a future date and time")
         

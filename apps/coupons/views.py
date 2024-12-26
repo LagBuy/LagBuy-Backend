@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Coupon
 from .serializers import CouponSerializer
@@ -162,7 +163,6 @@ class SellerCouponDetailUpdateDeleteView(APIView):
     """Seller can view details of a coupon, update and delete it"""
     permission_classes = [IsSeller]
     
-    # TODO - Add condition to ensure user has object permission
     def get(self, request, code, *args, **kwargs):
         """Get coupon by the unique coupon code"""
         if not code:
@@ -172,12 +172,16 @@ class SellerCouponDetailUpdateDeleteView(APIView):
         """Retrieve coupon by the unique code and handle exceptions"""
         try:
             coupon = Coupon.objects.get(code=code)
+            self.check_object_permissions(request, coupon)   # check if user is the owner of the coupon
             serializer = CouponSerializer(coupon)
             return success_response(serializer.data,
                                     "Coupon fetched successfully")
         except Coupon.DoesNotExist:
             """Coupon does not exist. Error 404"""
             return error_response("Coupon not found", status.HTTP_404_NOT_FOUND)
+        except PermissionDenied:
+            """User is not the owner of the coupon"""
+            return error_response("User is not the owner of the coupon", status.HTTP_403_FORBIDDEN)
         except Exception as e:
             """Catch any unexpected exception"""
             print(f"Error while fetching coupon: {str(e)}")
@@ -192,6 +196,7 @@ class SellerCouponDetailUpdateDeleteView(APIView):
                                   status_code=status.HTTP_400_BAD_REQUEST)
         try:
             coupon = Coupon.objects.get(code=code)
+            self.check_object_permissions(request, coupon)  # check if user is the owner of the coupon
             data = request.data
             if not data:
                 return error_response("No data provided",
@@ -213,6 +218,9 @@ class SellerCouponDetailUpdateDeleteView(APIView):
             return error_response(
                 message="Coupon not found", status_code=status.HTTP_404_NOT_FOUND
             )
+        except PermissionDenied:
+            """User is not the owner of the coupon"""
+            return error_response("User is not the owner of the coupon", status.HTTP_403_FORBIDDEN)
         except Exception as e:
             print(f"Error while updating coupon: {str(e)}")
             logger.error(f"Internal Server Error updating coupon: {e}")
@@ -229,6 +237,7 @@ class SellerCouponDetailUpdateDeleteView(APIView):
                                   status_code=status.HTTP_400_BAD_REQUEST)
         try:
             coupon = Coupon.objects.get(code=code)
+            self.check_object_permissions(request, coupon) # check if user is the owner of the coupon
             coupon.delete()
             return success_response(
                 message="Coupon deleted successfully.",
@@ -236,6 +245,9 @@ class SellerCouponDetailUpdateDeleteView(APIView):
                 )
         except Coupon.DoesNotExist:
             return error_response("Coupon not found", status_code=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied:
+            """User is not the owner of the coupon"""
+            return error_response("User is not the owner of the coupon", status.HTTP_403_FORBIDDEN)
         except Exception as e:
             print(f"Error while deleting coupon: {str(e)}")
             logger.error(f"Internal Server Error occured while deleting coupon: {e}")
