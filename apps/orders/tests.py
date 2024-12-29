@@ -258,3 +258,35 @@ class OrderAPITest(TestCase):
         url = reverse_lazy("seller-orders")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_product_stock_decreases_on_order(self):
+        """Test that the product stock decreases when an order is created."""
+        initial_stock = self.product.stock_quantity
+        url = reverse_lazy("orders")
+        data = {
+            "items": [
+                {"product": str(self.product.id), "quantity": 2, "coupon": "DISCOUNT10"}
+            ],
+            "delivery_address": "123 Test St",
+        }
+        response = self.client.post(url, data, format="json")
+        self.product.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(self.product.stock_quantity, initial_stock - 2)
+
+    def test_cannot_order_more_than_available_stock(self):
+        """Test that a user cannot order more than the available stock."""
+        url = reverse_lazy("orders")
+        data = {
+            "items": [
+                {
+                    "product": str(self.product.id),
+                    "quantity": 20,
+                    "coupon": "DISCOUNT10",
+                }
+            ],
+            "delivery_address": "123 Test St",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Insufficient stock for product", str(response.data))

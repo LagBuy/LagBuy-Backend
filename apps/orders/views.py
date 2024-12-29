@@ -1,6 +1,7 @@
 import logging
 
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -36,6 +37,10 @@ class OrderCreateView(APIView):
             return error_response(
                 message=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValidationError as e:
+            return error_response(
+                message=e.detail, status_code=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
             logger.error(f"Error creating order: {e}")
