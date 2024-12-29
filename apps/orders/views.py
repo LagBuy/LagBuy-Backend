@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from common.utils.responses import error_response, success_response
 
-from .models import Order, OrderItem
+from .models import Order
 from .permissions import IsSeller
 from .serializers import (OrderSerializer, OrderStatusUpdateSerializer,
                           SellerOrderSerializer)
