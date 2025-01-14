@@ -1,4 +1,7 @@
+from django.db import transaction
 from rest_framework import serializers
+
+from apps.products.models import Product
 
 from .models import Order, OrderItem
 
@@ -48,11 +51,19 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Order must contain at least one item.")
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop("items")
         buyer = self.context["request"].user
         order = Order.objects.create(buyer=buyer, **validated_data)
         for item_data in items_data:
+            product = item_data["product"]
+            if product.stock_quantity < item_data["quantity"]:
+                raise serializers.ValidationError(
+                    f"Insufficient stock for product {product.name}"
+                )
+            product.stock_quantity -= item_data["quantity"]
+            product.save()
             OrderItem.objects.create(order=order, **item_data)
         return order
 
