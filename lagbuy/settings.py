@@ -10,10 +10,7 @@ env.read_env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = env.str("SECRET_KEY")
-
-if not SECRET_KEY:
-    raise ValueError("Missing DJANGO_SECRET_KEY environment variable")
+SECRET_KEY = env.str("SECRET_KEY", default="TEST_fejdhasjkdfhuwefhlaskdj")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=False)
