@@ -89,11 +89,11 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ORIGIN_WHITELIST = (
-    "0.0.0.0:3000",
-    "0.0.0.0:8000",  # TODO: Set this to the frontend URL
+    "http://0.0.0.0:3000",
+    "http://0.0.0.0:8000",  # TODO: Set this to the frontend URL
 )
 
-CSRF_TRUSTED_ORIGINS = ["0.0.0.0:3000"]  # TODO: Set this to the frontend URL
+CSRF_TRUSTED_ORIGINS = ["http://0.0.0.0:3000"]  # TODO: Set this to the frontend URL
 
 ROOT_URLCONF = "lagbuy.urls"
 
