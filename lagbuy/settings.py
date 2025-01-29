@@ -19,7 +19,7 @@ APPEND_SLASH = True  #
 MEDIA_URL = "/media/"  #
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
-ALLOWED_HOSTS = [".elasticbeanstalk.com", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "users.CustomUser"
 
@@ -89,11 +89,11 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ORIGIN_WHITELIST = (
-    "http://localhost:3000",
-    "http://localhost:8000",  # TODO: Set this to the frontend URL
+    "0.0.0.0:3000",
+    "0.0.0.0:8000",  # TODO: Set this to the frontend URL
 )
 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]  # TODO: Set this to the frontend URL
+CSRF_TRUSTED_ORIGINS = ["0.0.0.0:3000"]  # TODO: Set this to the frontend URL
 
 ROOT_URLCONF = "lagbuy.urls"
 
