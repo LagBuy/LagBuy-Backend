@@ -6,6 +6,24 @@ from django.utils import timezone
 from apps.users.models import CustomUser
 
 
+class Category(models.Model):
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Category"
+        verbose_name_plural = "Categories"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class Product(models.Model):
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False, unique=True
@@ -18,15 +36,10 @@ class Product(models.Model):
     stock_quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-
-    """Relationships for products model"""
     seller = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, related_name="products"
     )
-    # categories = models.ManyToManyField('Category', related_name='products')
-    # orders = models.ManyToManyField('Order', through='OrderProduct', related_name='products')
-    # reviews = models.ForeignKey('Review', on_delete=models.CASCADE, related_name='product_reviews', null=True,
-    #                             blank=True)
+    categories = models.ManyToManyField(Category, related_name="products")
 
     class Meta:
         verbose_name = "Product"
