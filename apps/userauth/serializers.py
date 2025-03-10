@@ -12,6 +12,12 @@ class CustomRegisterSerializer(RegisterSerializer):
     role = serializers.ChoiceField(choices=[('buyer', 'Buyer'), ('seller', 'Seller'), ('dispatch', 'dispatch')], default='buyer')
     image = serializers.ImageField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_null=True)
+    password2 = None
+
+    def validate(self, data):
+        """Override the default behaviour of checking for
+        password1 and password2"""
+        return data
 
     def get_cleaned_data(self):
         data = super().get_cleaned_data()

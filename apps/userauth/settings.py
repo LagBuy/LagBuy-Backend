@@ -1,4 +1,5 @@
 # contains specific settings for the user authentication
+from datetime import timedelta
 
 REST_AUTH = {
     'USE_JWT': True,
@@ -6,6 +7,10 @@ REST_AUTH = {
     'JWT_AUTH_REFRESH_COOKIE': 'refresh-token',
     'USER_DETAILS_SERIALIZER': 'apps.users.serializers.CustomUserSerializer',
     'REGISTER_SERIALIZER': 'apps.userauth.serializers.CustomRegisterSerializer',
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1)
 }
 
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
