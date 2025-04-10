@@ -3,6 +3,9 @@ venv/
 .venv/
 __pycache__/
 env/
-script.py
-
 db.sqlite3
+script.py
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

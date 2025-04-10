@@ -1,12 +1,27 @@
-"""Urls for Products app"""
-from django.urls import path, include
+from django.urls import path
 
-from .views import GetProduct, GetAllProducts
+from .views import CategoryViewSet, ProductViewSet
+
+category_list = CategoryViewSet.as_view({"get": "list", "post": "create"})
+
+category_detail = CategoryViewSet.as_view({"put": "update", "delete": "destroy"})
+
+product_list = ProductViewSet.as_view({"get": "list", "post": "create"})
+
+product_detail = ProductViewSet.as_view(
+    {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
+)
+
+product_update_stock = ProductViewSet.as_view({"post": "update_stock"})
 
 urlpatterns = [
-    # path('', CreateProduct.as_view(), name='create-product'),
-    path('', GetAllProducts.as_view(), name='products'),
-    path('<uuid:id>', GetProduct.as_view(), name='products-by-id'),
-    # path('<uuid:id>/update/', UpdateProduct.as_view(), name='update-product'),
-    # path('<uuid:id>/delete/', DeleteProduct.as_view(), name='delete-product'),
+    path("categories/", category_list, name="category-list"),
+    path("categories/<uuid:pk>/", category_detail, name="category-detail"),
+    path("products/", product_list, name="product-list"),
+    path("products/<uuid:pk>/", product_detail, name="product-detail"),
+    path(
+        "products/<uuid:pk>/update-stock/",
+        product_update_stock,
+        name="product-update-stock",
+    ),
 ]
