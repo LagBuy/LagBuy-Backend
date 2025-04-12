@@ -31,7 +31,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
