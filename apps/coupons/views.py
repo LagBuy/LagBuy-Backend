@@ -6,9 +6,9 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import PermissionDenied
 
 from .models import Coupon
-from .serializers import CouponSerializer
+from .serializers import CouponSerializer, CouponBuyerSerializer
 from common.utils.responses import success_response, error_response
-from apps.userauth.permissions import IsSeller
+from apps.userauth.permissions import IsOwnerSeller
 from apps.products.models import Product
 
 logger = logging.getLogger(__name__)
@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 
 class VerifyCouponView(APIView):
     """Verify the validity of a coupon on a product"""
-    # TODO - Check that the coupon has not expired,
-    # - it is applied to the valid product,
-    # - it meets the order quantity requirements and other requirements
     def get(self, request, *args, **kwargs):
         """Return a success or error response
         if the coupon is valid or not"""
@@ -29,10 +26,13 @@ class VerifyCouponView(APIView):
         
         code = data.get('code', None)
         product_id = data.get('product_id', None)
+        quantity = data.get('quantity', None)
         if not code:
             return error_response("NO coupon code provided", status.HTTP_400_BAD_REQUEST)
         elif not product_id:
             return error_response("Product ID not provided", status.HTTP_400_BAD_REQUEST)
+        elif not quantity:
+            return error_response("Specify the quatity the user is buying", status.HTTP_400_BAD_REQUEST)
         
         try:
             """get coupon and product"""
@@ -55,17 +55,33 @@ class VerifyCouponView(APIView):
         """Ensure that the coupon is valid for the product it is applied on"""
         coupon_products = coupon.products
         if product in coupon_products:
-            # TODO - Add condition to check and verify min and max order quantity
-            return success_response("Valid Coupon")
-        
-        return error_response(
-            "Coupon could not be verified",
+            if not coupon.min_purchase_quantity and not coupon.max_purchase_quantity:
+                if coupon.min_purchase_quantity < quantity or quantity > coupon.max_purchase_quantity:
+                    return error_response(
+                        f"Coupon can only be applied on order quantity between the range of {coupon.min_purchase_quantity} and {coupon.max_purchase_quantity}",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                        )
+            elif not coupon.min_purchase_quantity and coupon.min_purchase_quantity < quantity:
+                return error_response(
+                        f"Coupon can only be applied on order quantity greater than {coupon.min_purchase_quantity}",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                        )
+            elif not coupon.max_purchase_quantity and coupon.max_purchase_quantity > quantity:
+                return error_response(
+                        f"Coupon can only be applied on order quantity less than {coupon.max_purchase_quantity}",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                        )
+            serializer = CouponBuyerSerializer(coupon)
+            return success_response(serializer.data, "Valid Coupon")
+        else:
+            return error_response(
+            "Coupon not valid for selected product",
             status.HTTP_400_BAD_REQUEST
         )
 
 
 class CouponDetailView(APIView):
-    """Get coupon by ID"""
+    """Get coupon by ID. Admin Only"""
     permission_classes = [IsAuthenticated, IsAdminUser]
     
     def get(self, request, code, *args, **kwargs):
@@ -91,15 +107,14 @@ class CouponDetailView(APIView):
                                   status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class CouponListView(APIView):
-    """Get a list of all coupon"""
+    """Get a list of all coupon. Admin only"""
     permission_class = [IsAuthenticated, IsAdminUser]
     
     def get(self, request, *args, **kwargs):
         """Get all coupons"""
         try:
-            coupons = Coupon.objects.all()
+            coupons = Coupon.objects.all().order_by('created_at')
             serializer = CouponSerializer(coupons, many=True)
 
             return success_response(serializer.data, "Coupons fetched successfully")
@@ -161,7 +176,7 @@ class SellerCouponListCreateView(APIView):
 
 class SellerCouponDetailUpdateDeleteView(APIView):
     """Seller can view details of a coupon, update and delete it"""
-    permission_classes = [IsSeller]
+    permission_classes = [IsOwnerSeller]
     
     def get(self, request, code, *args, **kwargs):
         """Get coupon by the unique coupon code"""

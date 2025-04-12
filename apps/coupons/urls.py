@@ -1,6 +1,10 @@
 from django.urls import path
 
-from .views import CouponDetailView, CouponListView, SellerCouponDetailUpdateDeleteView, SellerCouponListCreateView, VerifyCouponView
+from .views import (CouponDetailView,
+                    CouponListView,
+                    SellerCouponDetailUpdateDeleteView,
+                    SellerCouponListCreateView,
+                    VerifyCouponView)
 
 urlpatterns = [
     path("", CouponListView.as_view(), name="coupons"),     # for admin user

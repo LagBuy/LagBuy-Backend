@@ -16,8 +16,8 @@ class Coupon(models.Model):
     code = models.CharField(max_length=50, unique=True)
     discount_type = models.CharField(max_length=10, choices=DiscountType.choices, default=DiscountType.FIXED)
     discount_value = models.DecimalField(max_digits=10, decimal_places=2, blank=False)
-    min_purchase_amount = models.PositiveIntegerField(null=True)
-    max_puchase_amount = models.PositiveIntegerField(null=True)
+    min_purchase_quantity = models.PositiveIntegerField(null=True)
+    max_purchase_quantity = models.PositiveIntegerField(null=True)
     valid_from = models.DateTimeField(default=timezone.now)
     valid_to = models.DateTimeField()
     usage_limit = models.PositiveIntegerField(null=True)
@@ -27,7 +27,7 @@ class Coupon(models.Model):
 
     seller = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='coupons')
     """list of products the coupon is valid on. Must be the seller's products"""
-    products = models.ManyToManyField(Product, related_name='coupons') # This should be changed and added to the Product model itself. a product has coupons, a coupon does not have products
+    products = models.ManyToManyField(Product, related_name='coupons') # TODO: remove and add to the Product model itself. a product has coupons, a coupon does not have products
 
     @property
     def status(self):
@@ -41,6 +41,7 @@ class Coupon(models.Model):
     class Meta:
         verbose_name = 'Coupon'
         verbose_name_plural = 'Coupons'
+        ordering = ['-created_at']
 
     def __str__(self):
         """object return string"""

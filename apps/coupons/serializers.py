@@ -21,8 +21,8 @@ class CouponSerializer(serializers.ModelSerializer):
             "code",
             "discount_type",
             "discount_value",
-            "min_purchase_amount",
-            "max_puchase_amount",
+            "min_purchase_quantity",
+            "max_purchase_quantity",
             "valid_from",
             "valid_to",
             "usage_limit",
@@ -37,9 +37,9 @@ class CouponSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate the coupon data"""
-        if data.get("valid_from", None) is not None and data["valid_to"] < data["valid_from"]:
+        if data.get("valid_from", None) is not None and data.get("valid_to", None) is not None and data["valid_to"] < data["valid_from"]:
             raise serializers.ValidationError("'Valid to' has to be a later date than 'valid from'")
-        if data["valid_to"] <= timezone.now():
+        if data.get("valid_to", None) is not None and data["valid_to"] <= timezone.now():
             raise serializers.ValidationError("Invalid Expiration date. Make sure you choose a future date and time")
         
         """The logged in user must be the owner/seller of the product(s) for them to create a valid coupon"""
@@ -47,3 +47,18 @@ class CouponSerializer(serializers.ModelSerializer):
             if data["seller"] != product.seller:
                 raise serializers.ValidationError("User must be the seller of the product")
         return data
+
+class CouponBuyerSerializer(serializers.ModelSerializer):
+    """A serializer to give the buyers only a minimal view of the coupon details"""
+    status = serializers.ReadOnlyField()
+    class Meta:
+        model = Coupon
+        fields = [
+            #"url",
+            "id",
+            "code",
+            "discount_type",
+            "discount_value",
+            "status"
+        ]
+        read_only_fields = ["id", "code", "discount_type", "discount_value"]
