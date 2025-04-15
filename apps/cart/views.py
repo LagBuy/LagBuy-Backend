@@ -6,6 +6,7 @@ from .models import Cart, CartItem
 from .serializers import CartItemSerializer, CartSerializer
 
 
+# TODO: add a view to add Cartitems to a user's Cart
 class CartViewSet(viewsets.ModelViewSet):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
@@ -18,7 +19,6 @@ class CartViewSet(viewsets.ModelViewSet):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 class CartItemViewSet(viewsets.ModelViewSet):
     queryset = CartItem.objects.all()

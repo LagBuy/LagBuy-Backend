@@ -107,7 +107,7 @@ class OrderStatusUpdateView(APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
+# TODO: change the filter to an orderItem instead of an Order
 class SellerOrderListView(APIView):
     """View to retrieve orders for the seller's products"""
 
