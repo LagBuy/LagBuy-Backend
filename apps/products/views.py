@@ -27,8 +27,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsAdminUser]
         return super().get_permissions()
 
-# TODO: use the custom Response handler for the project.
-# TODO: implement logging for all the views
+# TODO: use the custom Response handler for the project. (apply to other apps also)
+# TODO: implement logging for all the views (apply to other apps also)
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -43,7 +43,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer.save(seller=self.request.user)
 
     # TODO: use a partial update view instead
-    # TODO: implement a method to remove 'user' field from a request data
+    # TODO: implement a method to remove 'user' field from a request data (apply to other apps also)
     # TODO: implement a custom `get_object()` function
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def update_stock(self, request, pk=None):
