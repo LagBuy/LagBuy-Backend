@@ -109,7 +109,7 @@ class CouponDetailView(APIView):
 
 class CouponListView(APIView):
     """Get a list of all coupon. Admin only"""
-    permission_class = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     
     def get(self, request, *args, **kwargs):
         """Get all coupons"""
