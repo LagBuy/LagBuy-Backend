@@ -8,7 +8,7 @@ from apps.products.models import Product
 class CouponSerializer(serializers.ModelSerializer):
     """Serializer class for the Coupon model"""
 
-    seller = serializers.SlugRelatedField(slug_field='username', queryset=get_user_model().objects.all())
+    # seller = serializers.SlugRelatedField(slug_field='username', queryset=get_user_model().objects.all())
     # products = serializers.HyperlinkedRelatedField(view_name='products-by-id', lookup_field='id', many=True, read_only=False, queryset=Product.objects.all())
     # url = serializers.HyperlinkedIdentityField(view_name='coupon-detail', lookup_field='code', read_only=True)
     status = serializers.ReadOnlyField()

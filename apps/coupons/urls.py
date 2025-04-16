@@ -7,9 +7,9 @@ from .views import (CouponDetailView,
                     VerifyCouponView)
 
 urlpatterns = [
-    path("", CouponListView.as_view(), name="coupons"),     # for admin user
-    path("seller/", SellerCouponListCreateView.as_view(), name="seller-coupon-detail"),
-    path("seller/<str:code>/", SellerCouponDetailUpdateDeleteView.as_view(), name="seller-coupons"),
+    path("", CouponListView.as_view(), name="admin-coupons-list"),     # for admin user
+    path("seller/", SellerCouponListCreateView.as_view(), name="coupon-list"),
+    path("seller/<str:code>/", SellerCouponDetailUpdateDeleteView.as_view(), name="coupons-detail"),
     path("verify/", VerifyCouponView.as_view(), name="verify-coupon"),
-    path("<str:code>/", CouponDetailView.as_view(), name="coupon-detail"),      # for admin user
+    path("<str:code>/", CouponDetailView.as_view(), name="admin-coupon-detail"),      # for admin user
 ]

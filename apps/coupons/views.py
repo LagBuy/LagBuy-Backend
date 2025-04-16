@@ -152,7 +152,7 @@ class SellerCouponListCreateView(APIView):
                 return error_response("No data provided",
                                       status.HTTP_400_BAD_REQUEST)
             """Ensure that the seller is the logged in user"""
-            data['seller'] = request.user
+            data['seller'] = request.user.id
             serializer = CouponSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
