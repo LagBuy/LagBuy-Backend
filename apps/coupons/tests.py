@@ -136,6 +136,13 @@ class CouponAPITest(TestCase):
             stock_quantity = 50,
             seller=cls.admin,
         )
+        cls.coupon2 = Coupon.objects.create(
+            code="admincoupon",
+            discount_value = 100,
+            valid_to = (timezone.now() + timezone.timedelta(days=2)),
+            seller = cls.admin,
+        )
+        cls.coupon2.products.add(cls.product2)
         
     def setUp(self):
         self.client = APIClient()
@@ -181,7 +188,7 @@ class CouponAPITest(TestCase):
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_create_coupon_with_invalid_date(self):
+    def test_create_coupon_with_invalid_dates(self):
         """Test to ensure a seller can only create a product they own"""
         url = reverse_lazy("coupon-list")
         data = {
@@ -203,7 +210,7 @@ class CouponAPITest(TestCase):
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
         
 
-    def test_seller_get_coupon(self):
+    def test_seller_get_coupons(self):
         """Test retrieving all coupon under a seller"""
         url = reverse_lazy("coupon-list")
         response = self.client.get(url)
@@ -211,4 +218,47 @@ class CouponAPITest(TestCase):
         self.assertEqual(len(response.data["data"]), 1)
         self.assertEqual(response.data['data'][0]['code'], 'testcoupon')
     
+    def test_seller_get_coupon(self):
+        """Test a seller can retrieve the full detail of their coupon"""
+        pass
+
+    def test_seller_update_coupon(self):
+        """Test a seller can update their coupon"""
+        url = reverse_lazy("coupon-detail")
+        pass
+
+    def test_seller_delete_coupon(self):
+        """Test deleting a coupon"""
+        pass
+
+    def test_update_wrong_coupon(self):
+        """Test a wrong owner cannot update another seller coupon"""
+        pass
+
+    def test_delete_wrong_coupon(self):
+        """Test a wrong owner cannot delete another seller coupon"""
+        pass
+
+    def test_no_seller_coupon(self):
+        """Test the response when a seller has not created a coupon"""
+
+    def test_admin_get_all_coupons(self):
+        """Test an admin can see all coupon"""
+        pass
+
+    def test_admin_get_coupon(self):
+        """Test an admin can retrieve a specific coupon"""
+        pass
+
+    def test_get_coupon_status(self):
+        """Test verifying the coupon status"""
+        pass
+    
+    def test_buyer_coupon_view(self):
+        """Test the coupon view for a non owner and not admin"""
+        pass
+
+    def test_get_wrong_coupon(self):
+        """Test the response when a wrong coupon is requested"""
+        pass
 
