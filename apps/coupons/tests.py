@@ -178,16 +178,31 @@ class CouponAPITest(TestCase):
         self.assertNotEqual(data["seller"], self.buyer.id)
     
     def test_create_coupon_with_wrong_product(self):
-        """Test to ensure a seller can only create a product they own"""
+        """Test to ensure a seller can only create coupon on a product they own"""
         url = reverse_lazy("coupon-list")
         data = {
             "code": "testcoupon3",
             "discount_value": 100.00,
+            "valid_to": str(timezone.now() + timezone.timedelta(days=2)),
             "products": [self.product2.id]
             }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # TODO: reevaluate how this feature works
+    def test_create_unique_coupons_only(self):
+        """Test to ensure each coupon a seller create is unique"""
+        url = reverse_lazy("coupon-list")
+        data = {
+            "code": "testcoupon",
+            "discount_value": 100.00,
+            "valid_to": str(timezone.now() + timezone.timedelta(days=2)),
+            "products": [self.product1.id]
+            }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # TODO: test this on the actual endpoint
     def test_create_coupon_with_invalid_dates(self):
         """Test to ensure a seller can only create a product they own"""
         url = reverse_lazy("coupon-list")
@@ -220,45 +235,215 @@ class CouponAPITest(TestCase):
     
     def test_seller_get_coupon(self):
         """Test a seller can retrieve the full detail of their coupon"""
-        pass
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        response = self.client.get(url)
+        data = response.data['data']
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(data['code'], "testcoupon")
+        self.assertEqual(data["discount_value"], "100.00")
+        self.assertEqual(data["min_purchase_quantity"], 2)
+        self.assertEqual(data["max_purchase_quantity"], 20)
+        self.assertIn(self.product1.id, data["products"])
+    
+    def test_seller_get_wrong_coupon(self):
+        """Test seller retreive with wrong coupon code"""
+        url = reverse_lazy("coupon-detail", args=[self.coupon2.code])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_seller_update_coupon(self):
         """Test a seller can update their coupon"""
-        url = reverse_lazy("coupon-detail")
-        pass
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        data = {
+            #"code": "testcoupon10",
+            "max_purchase_quantity": 50,
+            "usage_limit": 10,
+            }
+        response = self.client.put(url, data, format='json')
+        self.product1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']["max_purchase_quantity"], 50)
+        self.assertEqual(response.data['data']["usage_limit"], 10)
+
+    def test_update_coupon_seller_with_wrong_seller(self):
+        """Test a coupon seller can not be updated to a wrong seller"""
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        data = {
+            "seller": self.buyer.id, # test putting the wrong user
+            }
+        response = self.client.put(url, data, format='json')
+        self.product1.refresh_from_db()
+        self.assertEqual(response.data['data']['seller'], self.seller.id)
+    
+    def test_update_coupon_seller_with_wrong_date(self):
+        """Test a coupon seller can not be updated to a wrong seller"""
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        data = {
+            "valid_to": str(timezone.now() + timezone.timedelta(days=1)),
+            "valid_from": str(timezone.now() + timezone.timedelta(days=2)),
+            }
+        response = self.client.put(url, data, format='json')
+        self.product1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_seller_update_with_wrong_product(self):
+        """Test a coupon cannot be updated with wrong product"""
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        data = {
+            "products": [self.product2.id] # check for non seller product
+            }
+        response = self.client.put(url, data, format='json')
+        self.product1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_seller_update_coupon_no_data(self):
+        """Test update with no data provided"""
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        response = self.client.put(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_seller_delete_coupon(self):
         """Test deleting a coupon"""
-        pass
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Coupon.objects.filter(code=self.coupon1.code).exists())
 
     def test_update_wrong_coupon(self):
         """Test a wrong owner cannot update another seller coupon"""
-        pass
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        self.client.force_authenticate(user=self.buyer)
+        data = {
+            "max_purchase_quantity": 50,
+            "usage_limit": 10,
+            }
+        response = self.client.put(url, data, format='json')
+        self.product1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_delete_wrong_coupon(self):
         """Test a wrong owner cannot delete another seller coupon"""
-        pass
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("coupon-detail", args=[self.coupon1.code])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Coupon.objects.filter(code=self.coupon1.code).exists())
 
     def test_no_seller_coupon(self):
         """Test the response when a seller has not created a coupon"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("coupon-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["data"]), 0)
+        self.assertEqual(response.data['data'], [])
 
     def test_admin_get_all_coupons(self):
         """Test an admin can see all coupon"""
-        pass
+        self.client.force_authenticate(user=self.admin)
+        url = reverse_lazy("admin-coupons-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["data"]), 2)
 
-    def test_admin_get_coupon(self):
-        """Test an admin can retrieve a specific coupon"""
-        pass
+    def test_admin_get_seller_coupon(self):
+        """Test an admin can retrieve a specific coupon for any seller"""
+        self.client.force_authenticate(user=self.admin)
+        url = reverse_lazy("admin-coupon-detail", args=[self.coupon1.code])
+        response = self.client.get(url)
+        data = response.data['data']
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(data['code'], "testcoupon")
+        self.assertEqual(data["discount_value"], "100.00")
+        self.assertEqual(data["min_purchase_quantity"], 2)
+        self.assertEqual(data["max_purchase_quantity"], 20)
+        self.assertIn(self.product1.id, data["products"])
 
     def test_get_coupon_status(self):
         """Test verifying the coupon status"""
-        pass
-    
-    def test_buyer_coupon_view(self):
-        """Test the coupon view for a non owner and not admin"""
-        pass
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+            'product_id': self.product1.id,
+            'quantity': 5
+        }
+        response = self.client.post(url, data, format="json")
+        data = response.data['data']
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(data['code'], "testcoupon")
+        self.assertEqual(data["discount_value"], "100.00")
+        self.assertEqual(data["discount_type"], "Fixed")
+        self.assertEqual(data.get("min_purchase_quantity", None), None)
+        self.assertEqual(data.get("max_purchase_quantity", None), None)
+        self.assertEqual(data.get("products", None), None)
 
     def test_get_wrong_coupon(self):
-        """Test the response when a wrong coupon is requested"""
-        pass
+        """Test the response when a wrong coupon is requested for verification"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'couponnotexist',
+            'product_id': self.product1.id,
+            'quantity': 5
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_get_coupon_with_incomplete_data(self):
+        """Test the response when a wrong coupon is requested"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_get_coupon_with_wrong_product_id(self):
+        """Test the response when a coupon with wrong product is requested for verification"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+            'product_id': 'kdh38923jlh2323',
+            'quantity': 5
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_get_coupon_with_wrong_seller_product(self):
+        """Test the response when a wrong coupon is requested for verification"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+            'product_id': self.product2.id,
+            'quantity': 5
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_get_coupon_with_wrong_min_quatitiy(self):
+        """Test the response when a wrong coupon is requested for verification"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+            'product_id': self.product1.id,
+            'quantity': 1
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_get_coupon_with_wrong_max_quatitiy(self):
+        """Test the response when a wrong coupon is requested for verification"""
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("verify-coupon")
+        data = {
+            'code': 'testcoupon',
+            'product_id': self.product1.id,
+            'quantity': 100
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
