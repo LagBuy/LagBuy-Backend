@@ -59,7 +59,8 @@ class Order(models.Model):
     def __str__(self):
         return f"Order - {self.id} by {self.buyer}"
 
-
+# TODO: Edit the coupon field to a FK field
+# TODO: calculate the total_price with consideration of the coupon discount
 class OrderItem(models.Model):
     """Model representing an item in an order."""
 
