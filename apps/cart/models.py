@@ -3,7 +3,7 @@ from django.db import models
 from apps.products.models import Product
 from apps.users.models import CustomUser
 
-
+# TODO: Remove the user field from the CartItem model
 class CartItem(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -18,7 +18,7 @@ class CartItem(models.Model):
     def total_price(self):
         return self.quantity * self.product.price
 
-
+# TODO: use a OneToMany field for the Cart model
 class Cart(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     items = models.ManyToManyField(CartItem)

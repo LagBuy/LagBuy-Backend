@@ -13,6 +13,11 @@ REST_AUTH = {
     'REGISTER_SERIALIZER': 'apps.userauth.serializers.CustomRegisterSerializer',
 }
 
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1)
+}
+
+ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 # ACCOUNT_EMAIL_VERIFICATION = 'optional'

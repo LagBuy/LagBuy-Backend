@@ -17,10 +17,10 @@ product_update_stock = ProductViewSet.as_view({"post": "update_stock"})
 urlpatterns = [
     path("categories/", category_list, name="category-list"),
     path("categories/<uuid:pk>/", category_detail, name="category-detail"),
-    path("products/", product_list, name="product-list"),
-    path("products/<uuid:pk>/", product_detail, name="product-detail"),
+    path("", product_list, name="product-list"),
+    path("<uuid:pk>/", product_detail, name="product-detail"),
     path(
-        "products/<uuid:pk>/update-stock/",
+        "<uuid:pk>/update-stock/",
         product_update_stock,
         name="product-update-stock",
     ),
