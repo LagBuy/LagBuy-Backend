@@ -1,12 +1,14 @@
+import uuid
 from django.db import models
 
 from apps.users.models import CustomUser
 
-class Riders(CustomUser):
+class Riders(models.Model):
     """A custom user class to manage all riders specific informations"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
     phone_number2 = models.CharField(max_length=20)
     nin = models.CharField(max_length=20, null=False)
-    nok = models.CharField(max_length=50) # next of kin
+    next_of_kin = models.CharField(max_length=50) # next of kin
     nok_phonenumber = models.CharField(max_length=20)
     motorcycle_type = models.CharField(max_length=10)
     motorcycle_brand = models.CharField(max_length=20)
@@ -18,12 +20,12 @@ class Riders(CustomUser):
     bank_name = models.CharField(max_length=20)
     account_number = models.CharField(max_length=20)
     account_name = models.CharField(max_length=50)
-    #status = models.CharField(max_length=10, default='inactive')
 
-    #is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
 
     # Relationships
-    # add one to many relationship to order items
+    # TODO: add one to many relationship to order items
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='rider_profile')
 
     class Meta:
         verbose_name = "Rider Profile"
@@ -31,4 +33,5 @@ class Riders(CustomUser):
 
     def __str__(self):
         """object return string"""
-        return f'Rider: {self.first_name} {self.last_name} [{self.email}]'
+        return f'Rider: {self.user.first_name} {self.user.last_name} [{self.user.email}]'
+

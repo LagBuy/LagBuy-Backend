@@ -7,21 +7,9 @@ class RidersSerializer(serializers.ModelSerializer):
     class Meta:
         model = Riders
         fields = (
-            'id',
-            'first_name',
-            'last_name',
-            'username',
-            'email',
-            'phone_number',
-            'role',
-            'image',
-            'address',
-            'created_at',
-            'updated_at',
-            'status',
             'phone_number2',
             'nin',
-            'nok',
+            'next_of_kin',
             'nok_phonenumber',
             'motorcycle_type',
             'motorcycle_brand',
@@ -33,16 +21,9 @@ class RidersSerializer(serializers.ModelSerializer):
             'bank_name',
             'account_number',
             'account_name',
-            'status',
-            # 'is_staff',
-            # 'is_active'
+            'is_active',
         )
         read_only_fields = [
-            'id',
-            'email',
-            'created_at',
-            'updated_at',
-            'status',
+            'is_active',
         ]
-
 
