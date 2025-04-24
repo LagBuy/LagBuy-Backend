@@ -14,7 +14,7 @@ class CustomRegisterSerializer(RegisterSerializer):
     image = serializers.ImageField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_null=True)
     password2 = None
-    is_rider = serializers.BooleanField(default=False)
+    is_rider = serializers.BooleanField(default=False, required=False)
 
     # riders info
     phone_number2 = serializers.CharField(max_length=20)
