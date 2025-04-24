@@ -11,6 +11,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 # TODO: remove `cart`, `orders`, and `reviews` field from serializer
+# TODO: The category field should return the categories names and not the ID. Edit it to reflect this
 class ProductSerializer(serializers.ModelSerializer):
     seller = serializers.StringRelatedField()
     categories = serializers.PrimaryKeyRelatedField(

@@ -1,8 +1,9 @@
 import logging
 
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.userauth.permissions import IsSeller
 from common.utils.responses import error_response, success_response
@@ -13,6 +14,7 @@ from .serializers import (
     InventoryUpdateSerializer,
     ProductSerializer,
 )
+from .filter import ProductFilter
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ["name", "description", "categories__name"]
+    filterset_class = ProductFilter
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -45,6 +50,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     # TODO: use a partial update view instead
     # TODO: implement a method to remove 'user' field from a request data (apply to other apps also)
     # TODO: implement a custom `get_object()` function
+    # TODO: ensure only the seller/owner of a product can update it's stock
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def update_stock(self, request, pk=None):
         try:

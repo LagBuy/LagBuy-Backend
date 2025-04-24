@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
 from .models import CustomUser
+from apps.riders.serializers import RidersSerializer
 
 class CustomUserSerializer(serializers.ModelSerializer):
     """Custom user serializer class"""
+    rider_profile = RidersSerializer()
     class Meta:
         model = CustomUser
         fields = (
@@ -21,6 +23,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'status',
             'is_active',
             'is_staff',
+            'is_rider',
+            'rider_profile',
         )
         read_only_fields = [
             'id',
