@@ -10,7 +10,7 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
 
     list_display = [
-        'email', 'first_name', 'last_name', 'username', 'phone_number', 'role', 'is_active',
+        'email', 'first_name', 'last_name', 'username', 'phone_number', 'role', 'is_active', 'is_rider',
     ]
     
     fieldsets = ((None, {"fields": ('email', 'first_name', 'last_name', 'username', 'role', 'phone_number')}),)     # edit
