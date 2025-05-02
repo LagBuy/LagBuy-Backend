@@ -1,7 +1,6 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
-
-from apps.products.models import Product
 
 from .models import Order, OrderItem
 
@@ -19,7 +18,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model."""
 
-    items = OrderItemSerializer(many=True)
+    items = OrderItemSerializer(many=True, required=False)
     total_price = serializers.ReadOnlyField()
     delivery_fee = serializers.ReadOnlyField()
 
@@ -47,7 +46,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate the order data."""
-        if not data["items"]:
+        if self.instance is None and not data.get("items"):
             raise serializers.ValidationError("Order must contain at least one item.")
         return data
 
@@ -66,6 +65,24 @@ class OrderSerializer(serializers.ModelSerializer):
             product.save()
             OrderItem.objects.create(order=order, **item_data)
         return order
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        Update order fields and its items if provided.
+        Only delivery_address can be updated by the user.
+        Only allow update if the order is less than 24 hours old.
+        TODO: This restriction may change in the future.
+        """
+        if (timezone.now() - instance.created_at).total_seconds() > 86400:
+            raise serializers.ValidationError(
+                "Order can only be updated within 24 hours of creation."
+            )
+        delivery_address = validated_data.get("delivery_address", None)
+        if delivery_address is not None:
+            instance.delivery_address = delivery_address
+            instance.save(update_fields=["delivery_address", "updated_at"])
+        return instance
 
 
 class OrderStatusUpdateSerializer(serializers.ModelSerializer):

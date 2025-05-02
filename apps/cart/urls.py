@@ -2,10 +2,10 @@ from django.urls import path
 
 from .views import CartItemViewSet, CartViewSet
 
-cart_list = CartViewSet.as_view({"get": "list", "post": "create"})
-cartitem_list = CartItemViewSet.as_view({"post": "create"})
+cart_list = CartViewSet.as_view({"get": "list", "delete": "destroy"})
+cartitem_list = CartItemViewSet.as_view({"get": "list", "post": "create"})
 cartitem_detail = CartItemViewSet.as_view(
-    {"patch": "partial_update", "delete": "destroy"}
+    {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
 )
 
 urlpatterns = [

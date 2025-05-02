@@ -35,7 +35,6 @@ class ReviewAPITest(TestCase):
         cls.product = Product.objects.create(
             name="Test Product",
             price=100.0,
-            images=[],
             description="Test Description",
             stock_quantity=10,
             seller=cls.user,
