@@ -19,8 +19,6 @@ class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model."""
 
     items = OrderItemSerializer(many=True, required=False)
-    total_price = serializers.ReadOnlyField()
-    delivery_fee = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
@@ -39,6 +37,8 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "created_at",
             "updated_at",
+            "total_price",
+            "delivery_fee",
             "delivery_status",
             "payment_status",
             "buyer",

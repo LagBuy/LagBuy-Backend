@@ -1,8 +1,10 @@
 from rest_framework import serializers
+
+from apps.products.serializers import MinimalProductSerializer
+
 from .models import Cart, CartItem
 
 
-# TODO: Use minimal product serializer when available
 class CartItemSerializer(serializers.ModelSerializer):
     """
     Serializer for CartItem model.
@@ -23,6 +25,19 @@ class CartItemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["total_price", "created_at", "updated_at"]
+
+    def to_representation(self, instance):
+        # Use MinimalProductSerializer for reading
+        ret = super().to_representation(instance)
+        ret["product"] = MinimalProductSerializer(instance.product).data
+        return ret
+
+    def to_internal_value(self, data):
+        # Accept product as an ID for writing
+        if "product" in data and isinstance(data["product"], dict):
+            data = data.copy()
+            data["product"] = data["product"].get("id")
+        return super().to_internal_value(data)
 
 
 class CartSerializer(serializers.ModelSerializer):

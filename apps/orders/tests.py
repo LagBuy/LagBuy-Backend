@@ -81,6 +81,7 @@ class OrderAPITest(TestCase):
         self.assertEqual(len(order_data["items"]), 1)
         self.assertEqual(order_data["items"][0]["product"], self.product.id)
         self.assertEqual(order_data["items"][0]["quantity"], 2)
+        self.assertIn(order_data["delivery_status"], ["pending", "completed"])
 
     def test_create_order_insufficient_stock(self):
         """Test creating an order with quantity greater than stock fails."""
@@ -112,6 +113,7 @@ class OrderAPITest(TestCase):
         order_data = response.data["data"]
         self.assertEqual(order_data["id"], str(self.order.id))
         self.assertEqual(order_data["buyer"], self.buyer.id)
+        self.assertIn(order_data["delivery_status"], ["pending", "completed"])
 
     def test_get_order_unauthenticated(self):
         """Test unauthenticated users cannot retrieve orders."""
@@ -141,20 +143,17 @@ class OrderAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "delivery_status": Order.DeliveryStatus.SHIPPED,
             "payment_status": Order.PaymentStatus.PAID,
         }
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
-        self.assertEqual(self.order.delivery_status, Order.DeliveryStatus.SHIPPED)
         self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
 
     def test_update_order_status_non_admin(self):
         """Test non-admin cannot update order status."""
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "delivery_status": Order.DeliveryStatus.SHIPPED,
             "payment_status": Order.PaymentStatus.PAID,
         }
         response = self.client.put(url, data, format="json")
@@ -165,7 +164,6 @@ class OrderAPITest(TestCase):
         self.client.force_authenticate(user=None)
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "delivery_status": Order.DeliveryStatus.SHIPPED,
             "payment_status": Order.PaymentStatus.PAID,
         }
         response = self.client.put(url, data, format="json")
@@ -177,9 +175,8 @@ class OrderAPITest(TestCase):
         url = reverse_lazy("seller-orders")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(
-            any(item["product"] == self.product.id for item in response.data["data"])
-        )
+        for order in response.data["data"]:
+            self.assertEqual(order["product"], self.product.id or self.product2.id)
 
     def test_non_seller_cannot_view_seller_orders(self):
         """Test non-seller cannot view seller orders."""

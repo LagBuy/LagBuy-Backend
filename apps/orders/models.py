@@ -23,16 +23,6 @@ class Order(models.Model):
         UNPAID = "UNPAID", "Unpaid"
         PAID = "PAID", "Paid"
 
-    class DeliveryStatus(models.TextChoices):
-        """
-        Enum for delivery status of an order.
-        """
-
-        PENDING = "PENDING", "Pending"
-        SHIPPED = "SHIPPED", "Shipped"
-        DELIVERED = "DELIVERED", "Delivered"
-        RETURNED = "RETURNED", "Returned"
-
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False, unique=True
     )
@@ -43,9 +33,6 @@ class Order(models.Model):
         max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
     )
     delivery_address = models.TextField()
-    delivery_status = models.CharField(
-        max_length=10, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING
-    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,6 +51,21 @@ class Order(models.Model):
         """
         return 0.05 * float(self.total_price)
 
+    # TODO: Update this once it has been discussed
+    @property
+    def delivery_status(self):
+        """
+        Returns 'completed' if all items are delivered,
+        'pending' if any item is pending or shipped or returned,
+        or 'pending' if there are no items.
+        """
+        statuses = list(self.items.values_list("delivery_status", flat=True))
+        if not statuses:
+            return "pending"
+        if all(s == OrderItem.DeliveryStatus.DELIVERED for s in statuses):
+            return "completed"
+        return "pending"
+
     class Meta:
         verbose_name = "Order"
         verbose_name_plural = "Orders"
@@ -79,6 +81,16 @@ class OrderItem(models.Model):
     Can optionally have a coupon applied for discounts.
     """
 
+    class DeliveryStatus(models.TextChoices):
+        """
+        Enum for delivery status of an order item.
+        """
+
+        PENDING = "PENDING", "Pending"
+        SHIPPED = "SHIPPED", "Shipped"
+        DELIVERED = "DELIVERED", "Delivered"
+        RETURNED = "RETURNED", "Returned"
+
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False, unique=True
     )
@@ -86,6 +98,9 @@ class OrderItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE, null=True, blank=True)
+    delivery_status = models.CharField(
+        max_length=10, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING
+    )
 
     @property
     def total_price(self):

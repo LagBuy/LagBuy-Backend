@@ -70,3 +70,22 @@ class ProductSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative.")
         return value
+
+
+class MinimalProductSerializer(serializers.ModelSerializer):
+    """
+    Minimal serializer for Product model.
+    Includes only essential fields for cart display, including seller and first image.
+    """
+
+    seller = serializers.StringRelatedField()
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "seller", "image"]
+        read_only_fields = ["id", "name", "price", "seller", "image"]
+
+    def get_image(self, obj):
+        image = obj.images.first()
+        return image.image_url if image else None

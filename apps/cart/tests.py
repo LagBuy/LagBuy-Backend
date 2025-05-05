@@ -97,7 +97,9 @@ class CartAPITest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 1)
-        self.assertEqual(response.data["data"][0]["product"], self.product.id)
+        self.assertEqual(
+            response.data["data"][0]["product"]["id"], str(self.product.id)
+        )
 
     def test_add_cart_item(self):
         """Test adding a new item to the cart."""
@@ -108,7 +110,7 @@ class CartAPITest(TestCase):
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["data"]["product"], self.product2.id)
+        self.assertEqual(response.data["data"]["product"]["id"], str(self.product2.id))
         self.assertEqual(response.data["data"]["quantity"], 3)
         self.assertEqual(
             CartItem.objects.filter(cart=self.cart, product=self.product2).count(), 1
@@ -151,7 +153,7 @@ class CartAPITest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["id"], self.cart_item.id)
-        self.assertEqual(response.data["data"]["product"], self.product.id)
+        self.assertEqual(response.data["data"]["product"]["id"], str(self.product.id))
 
     def test_cart_permissions_unauthenticated(self):
         """Test that unauthenticated users cannot access cart endpoints."""

@@ -1,4 +1,5 @@
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
 from common.utils.responses import error_response, success_response
@@ -12,6 +13,7 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
     Viewset for managing the user's cart.
     Only allows retrieving the current user's cart.
     """
+
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
@@ -38,13 +40,56 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
         if not cart:
             return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
         cart.items.all().delete()
-        return success_response({}, "Cart cleared successfully.", status.HTTP_204_NO_CONTENT)
+        return success_response(
+            {}, "Cart cleared successfully.", status.HTTP_204_NO_CONTENT
+        )
+
+    @action(detail=False, methods=["post"])
+    def add_item(self, request, *args, **kwargs):
+        """
+        Add an item to the user's cart.
+        """
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        data = request.data.copy()
+        data["cart"] = cart.id
+
+        serializer = CartItemSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return success_response(
+                serializer.data,
+                "Cart item added successfully.",
+                status.HTTP_201_CREATED,
+            )
+        return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=["delete"])
+    def remove_item(self, request, *args, **kwargs):
+        """
+        Remove an item from the user's cart.
+        """
+        cart = Cart.objects.filter(user=request.user).first()
+        if not cart:
+            return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
+
+        item_id = request.data.get("item_id")
+        if not item_id:
+            return error_response("Item ID is required.", status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cart_item = cart.items.get(id=item_id)
+            cart_item.delete()
+            return success_response({}, "Cart item removed successfully.")
+        except CartItem.DoesNotExist:
+            return error_response("Cart item not found.", status.HTTP_404_NOT_FOUND)
+
 
 class CartItemViewSet(viewsets.ModelViewSet):
     """
     Viewset for managing items in the user's cart.
     Allows listing, adding, updating, and removing cart items.
     """
+
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
@@ -83,7 +128,8 @@ class CartItemViewSet(viewsets.ModelViewSet):
 
         # Check if item already exists in cart
         existing_item = CartItem.objects.filter(
-            cart=cart, product=data.get("product"),
+            cart=cart,
+            product=data.get("product"),
         ).first()
         if existing_item:
             existing_item.quantity += int(data.get("quantity", 1))
