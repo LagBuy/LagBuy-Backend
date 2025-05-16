@@ -17,7 +17,7 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "delete"]
+    http_method_names = ["get", "post", "delete"]
 
     def get_queryset(self):
         # Only allow users to access their own cart
@@ -32,68 +32,126 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = CartSerializer(cart)
         return success_response(serializer.data, "Cart retrieved successfully.")
 
-    def destroy(self, request, *args, **kwargs):
-        """
-        Allow users to clear their cart by deleting all items.
-        """
-        cart = Cart.objects.filter(user=request.user).first()
-        if not cart:
-            return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
-        cart.items.all().delete()
-        return success_response(
-            {}, "Cart cleared successfully.", status.HTTP_204_NO_CONTENT
-        )
-
     @action(detail=False, methods=["post"])
     def add_item(self, request, *args, **kwargs):
         """
-        Add an item to the user's cart.
+        Add an item to the user's cart. If the item exists, update its quantity based on the request:
+        - If quantity is provided, replace the existing quantity.
+        - If quantity is not provided, increment the existing quantity by one.
+        If the item does not exist, create it with the provided quantity or default to 1.
         """
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        data = request.data.copy()
-        data["cart"] = cart.id
+        try:
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            product_id = request.data.get("product")
+            quantity = request.data.get("quantity")
+            if not product_id:
+                return error_response(
+                    "Product ID is required.", status.HTTP_400_BAD_REQUEST
+                )
 
-        serializer = CartItemSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return success_response(
-                serializer.data,
-                "Cart item added successfully.",
-                status.HTTP_201_CREATED,
-            )
-        return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+            cart_item = cart.items.filter(product_id=product_id).first()
+            if cart_item:
+                # If item exists, update quantity accordingly
+                if quantity is not None:
+                    try:
+                        quantity = int(quantity)
+                    except (ValueError, TypeError):
+                        return error_response(
+                            "Quantity must be an integer.", status.HTTP_400_BAD_REQUEST
+                        )
+                    if quantity <= 0:
+                        return error_response(
+                            "Quantity must be greater than zero.", status.HTTP_400_BAD_REQUEST
+                        )
+                    cart_item.quantity = quantity  # Replace with provided quantity
+                else:
+                    cart_item.quantity += 1  # Increment by one if not provided
+                cart_item.save()
+                serializer = CartItemSerializer(cart_item)
+                return success_response(
+                    serializer.data,
+                    "Cart item quantity updated.",
+                    status.HTTP_200_OK,
+                )
+            # If item does not exist, create new with provided quantity or default to 1
+            data = request.data.copy()
+            data["cart"] = cart.id
+            if quantity is not None:
+                try:
+                    quantity = int(quantity)
+                except (ValueError, TypeError):
+                    return error_response(
+                        "Quantity must be an integer.", status.HTTP_400_BAD_REQUEST
+                    )
+                if quantity <= 0:
+                    return error_response(
+                        "Quantity must be greater than zero.", status.HTTP_400_BAD_REQUEST
+                    )
+                data["quantity"] = quantity
+            else:
+                data["quantity"] = 1
+            serializer = CartItemSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return success_response(
+                    serializer.data,
+                    "Cart item added successfully.",
+                    status.HTTP_201_CREATED,
+                )
+            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(str(e), status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["delete"])
     def remove_item(self, request, *args, **kwargs):
         """
         Remove an item from the user's cart.
         """
-        cart = Cart.objects.filter(user=request.user).first()
-        if not cart:
-            return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
-
-        item_id = request.data.get("item_id")
-        if not item_id:
-            return error_response("Item ID is required.", status.HTTP_400_BAD_REQUEST)
-
         try:
+            cart = Cart.objects.filter(user=request.user).first()
+            if not cart:
+                return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
+
+            item_id = request.data.get("item_id")
+            if not item_id:
+                return error_response(
+                    "Item ID is required.", status.HTTP_400_BAD_REQUEST
+                )
+
             cart_item = cart.items.get(id=item_id)
             cart_item.delete()
             return success_response({}, "Cart item removed successfully.")
         except CartItem.DoesNotExist:
             return error_response("Cart item not found.", status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return error_response(str(e), status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Allow users to clear their cart by deleting all items.
+        """
+        try:
+            cart = Cart.objects.filter(user=request.user).first()
+            if not cart:
+                return error_response("Cart not found.", status.HTTP_404_NOT_FOUND)
+            cart.items.all().delete()
+            return success_response(
+                {}, "Cart cleared successfully.", status.HTTP_204_NO_CONTENT
+            )
+        except Exception as e:
+            return error_response(str(e), status.HTTP_400_BAD_REQUEST)
 
 
-class CartItemViewSet(viewsets.ModelViewSet):
+class CartItemViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Viewset for managing items in the user's cart.
-    Allows listing, adding, updating, and removing cart items.
+    Allows listing and retrieving cart items only. Add/remove/update via CartViewSet actions.
     """
 
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "put", "patch", "delete"]
+    http_method_names = ["get"]
 
     def get_queryset(self):
         # Only allow users to access items in their own cart
@@ -117,56 +175,3 @@ class CartItemViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = CartItemSerializer(instance)
         return success_response(serializer.data, "Cart item retrieved successfully.")
-
-    def create(self, request, *args, **kwargs):
-        """
-        Add a new item to the user's cart or update quantity if it exists.
-        """
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        data = request.data.copy()
-        data["cart"] = cart.id
-
-        # Check if item already exists in cart
-        existing_item = CartItem.objects.filter(
-            cart=cart,
-            product=data.get("product"),
-        ).first()
-        if existing_item:
-            existing_item.quantity += int(data.get("quantity", 1))
-            existing_item.save()
-            serializer = CartItemSerializer(existing_item)
-            return success_response(
-                serializer.data, "Cart item quantity updated.", status.HTTP_200_OK
-            )
-
-        serializer = CartItemSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return success_response(
-                serializer.data,
-                "Cart item added successfully.",
-                status.HTTP_201_CREATED,
-            )
-        return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-
-    def update(self, request, *args, **kwargs):
-        """
-        Update the quantity or details of a cart item.
-        """
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = CartItemSerializer(instance, data=request.data, partial=partial)
-        if serializer.is_valid():
-            serializer.save()
-            return success_response(serializer.data, "Cart item updated successfully.")
-        return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Remove an item from the user's cart.
-        """
-        instance = self.get_object()
-        instance.delete()
-        return success_response(
-            {}, "Cart item removed successfully.", status.HTTP_204_NO_CONTENT
-        )
