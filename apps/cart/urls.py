@@ -4,14 +4,12 @@ from .views import CartItemViewSet, CartViewSet
 
 # Cart views
 cart_list = CartViewSet.as_view({"get": "list", "delete": "destroy"})
-add_cartitem = CartViewSet.add_item
-remove_cartitem = CartViewSet.remove_item
+add_cartitem = CartViewSet.as_view({"post": "add_item"})
+remove_cartitem = CartViewSet.as_view({"delete": "remove_item"})
 
-# Cart item views
-cartitem_list = CartItemViewSet.as_view({"get": "list", "post": "create"})
-cartitem_detail = CartItemViewSet.as_view(
-    {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
-)
+# Cart item views (read-only)
+cartitem_list = CartItemViewSet.as_view({"get": "list"})
+cartitem_detail = CartItemViewSet.as_view({"get": "retrieve"})
 
 urlpatterns = [
     path("", cart_list, name="cart-list"),

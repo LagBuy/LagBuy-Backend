@@ -215,3 +215,41 @@ class OrderAPITest(TestCase):
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Insufficient stock", str(response.data))
+
+    def test_create_order_from_cart(self):
+        """Test creating an order from the cart and verify order items and status."""
+
+        url = reverse_lazy("orders")
+        data = {
+            "items": [
+                {"product": self.product.id, "quantity": 2},
+                {"product": self.product2.id, "quantity": 1},
+            ],
+            "delivery_address": "Cart Order Address",
+        }
+        response = self.client.post(url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        order_id = response.data["data"]["id"]
+        order_detail_url = reverse_lazy("order-by-id", args=[order_id])
+        order_response = self.client.get(order_detail_url)
+
+        self.assertEqual(order_response.status_code, status.HTTP_200_OK)
+        items = order_response.data["data"]["items"]
+        self.assertEqual(len(items), 2)
+        product_ids = {item["product"] for item in items}
+        self.assertIn(self.product.id, product_ids)
+        self.assertIn(self.product2.id, product_ids)
+        self.assertIn(
+            order_response.data["data"]["delivery_status"], ["pending", "completed"]
+        )
+
+    def test_order_status_update(self):
+        """Test updating the status of an order."""
+        self.client.force_authenticate(user=self.admin)
+        url = reverse_lazy("update-order", args=[self.order.id])
+        data = {"payment_status": Order.PaymentStatus.PAID}
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)

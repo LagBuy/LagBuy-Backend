@@ -17,20 +17,20 @@ class CustomRegisterSerializer(RegisterSerializer):
     is_rider = serializers.BooleanField(default=False, required=False)
 
     # riders info
-    phone_number2 = serializers.CharField(max_length=20)
-    nin = serializers.CharField(max_length=20)
-    nok = serializers.CharField(max_length=50) # next of kin
-    nok_phonenumber = serializers.CharField(max_length=20)
-    motorcycle_type = serializers.CharField(max_length=10)
-    motorcycle_brand = serializers.CharField(max_length=20)
-    plate_number = serializers.CharField(max_length=20)
-    guarantor1 = serializers.CharField(max_length=50)
-    guarantor1_number = serializers.CharField(max_length=20)
-    guarantor2 = serializers.CharField(max_length=50)
-    guarantor2_number = serializers.CharField(max_length=20)
-    bank_name = serializers.CharField(max_length=20)
-    account_number = serializers.CharField(max_length=20)
-    account_name = serializers.CharField(max_length=50)
+    phone_number2 = serializers.CharField(max_length=20, required=False)
+    nin = serializers.CharField(max_length=20, required=False)
+    nok = serializers.CharField(max_length=50, required=False) # next of kin
+    nok_phonenumber = serializers.CharField(max_length=20, required=False)
+    motorcycle_type = serializers.CharField(max_length=10, required=False)
+    motorcycle_brand = serializers.CharField(max_length=20, required=False)
+    plate_number = serializers.CharField(max_length=20, required=False)
+    guarantor1 = serializers.CharField(max_length=50, required=False)
+    guarantor1_number = serializers.CharField(max_length=20, required=False)
+    guarantor2 = serializers.CharField(max_length=50, required=False)
+    guarantor2_number = serializers.CharField(max_length=20, required=False)
+    bank_name = serializers.CharField(max_length=20, required=False)
+    account_number = serializers.CharField(max_length=20, required=False)
+    account_name = serializers.CharField(max_length=50, required=False)
 
     def validate(self, data):
         """Override the default behaviour of checking for
