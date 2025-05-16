@@ -18,15 +18,34 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
-class OrderCreateView(APIView):
+class OrderListCreateView(APIView):
     """
-    API view for creating a new order.
-    Only authenticated users can create orders.
+    API view for listing and creating orders.
+    Only authenticated users can access their orders or create new ones.
     """
 
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post"]
+
+    def get(self, request, *args, **kwargs):
+        """List all orders for the authenticated user."""
+        try:
+            orders = Order.objects.filter(buyer=request.user)
+            serializer = OrderSerializer(orders, many=True)
+            return success_response(
+                message="Orders retrieved successfully.",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving orders: {e}")
+            return error_response(
+                message="An error occurred while retrieving the orders.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def post(self, request, *args, **kwargs):
+        """Create a new order."""
         try:
             serializer = OrderSerializer(
                 data=request.data, context={"request": request}
@@ -61,6 +80,7 @@ class OrderDetailView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "delete"]
 
     def get(self, request, order_id, *args, **kwargs):
         """Retrieve a specific order by ID."""
@@ -137,8 +157,10 @@ class OrderStatusUpdateView(APIView):
     """
 
     permission_classes = [IsAdminUser]
+    http_method_names = ["put"]
 
     def put(self, request, order_id, *args, **kwargs):
+        """Update the status of an order."""
         try:
             order = Order.objects.get(id=order_id)
             serializer = OrderStatusUpdateSerializer(
@@ -172,8 +194,10 @@ class SellerOrderListView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsSeller]
+    http_method_names = ["get"]
 
     def get(self, request, *args, **kwargs):
+        """Retrieve all orders for the authenticated seller."""
         try:
             seller = request.user
             orders = OrderItem.objects.filter(product__seller=seller).distinct()
