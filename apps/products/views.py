@@ -130,7 +130,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             "update": [IsAuthenticated, IsOwnerSeller],
             "partial_update": [IsAuthenticated, IsOwnerSeller],
             "destroy": [IsAuthenticated, IsOwnerSeller],
-            "update_stock": [IsAuthenticated, IsOwnerSeller],
         }
         self.permission_classes = action_permissions.get(
             self.action, self.permission_classes
