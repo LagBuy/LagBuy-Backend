@@ -16,7 +16,7 @@ urlpatterns = [
     path("api/v1/coupon/", include("apps.coupons.urls"), name="coupon"),
     path("api/v1/cart/", include("apps.cart.urls"), name="cart"),
     path("api/v1/reviews/", include("apps.reviews.urls"), name="reviews"),
-    path("api/v1/analytics/", include("apps.analytics.urls"), name="analytic"),
+    path("api/v1/vendors/", include("apps.vendors.urls"), name="analytic"),
     # schema
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

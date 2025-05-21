@@ -56,7 +56,7 @@ INSTALLED_APPS = [
     "apps.reviews",
     "apps.coupons",
     "apps.riders",
-    "apps.analytics",
+    "apps.vendors",
     "common",
 ]
 
