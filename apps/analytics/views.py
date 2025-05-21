@@ -18,7 +18,11 @@ class TotalSale(APIView):
     def get(self, request, *args, **kwargs):
         """get total sales"""
 
-        orderItems = OrderItem.objects.filter(order__payment_status=Order.PaymentStatus.PAID, product__seller = request.user)
+        # TODO: Test to ensure only a seller can access this.
+        orderItems = OrderItem.objects.filter(
+            order__payment_status=Order.PaymentStatus.PAID,
+            product__seller = request.user)
+
         total_prices = sum([i.total_price for i in orderItems])
 
         return success_response(

@@ -143,9 +143,9 @@ class SellerCouponListCreateView(APIView):
             """seller has not created any coupon"""
             return error_response("Seller has not created any coupon", status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            logger.error(f"Internal Serner Error while getting coupon: {str(e)}")
-            print(f"Internal Serner Error while getting coupon: {str(e)}")
-            return error_response("Internal Serner Error while getting coupon", status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Internal Server Error while getting coupon: {str(e)}")
+            print(f"Internal Server Error while getting coupon: {str(e)}")
+            return error_response("Internal Server Error while getting coupon", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def post(self, request, *args, **kwargs):
         """Method to create a coupon"""
