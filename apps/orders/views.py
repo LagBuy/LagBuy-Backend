@@ -3,26 +3,49 @@ import logging
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils.responses import error_response, success_response
 
-from .models import Order
+from .models import Order, OrderItem
 from .permissions import IsSeller
-from .serializers import (OrderSerializer, OrderStatusUpdateSerializer,
-                          SellerOrderSerializer)
+from .serializers import (
+    OrderSerializer,
+    OrderStatusUpdateSerializer,
+    SellerOrderItemSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class OrderCreateView(APIView):
-    """Order create view class"""
+class OrderListCreateView(APIView):
+    """
+    API view for listing and creating orders.
+    Only authenticated users can access their orders or create new ones.
+    """
 
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post"]
+
+    def get(self, request, *args, **kwargs):
+        """List all orders for the authenticated user."""
+        try:
+            orders = Order.objects.filter(buyer=request.user)
+            serializer = OrderSerializer(orders, many=True)
+            return success_response(
+                message="Orders retrieved successfully.",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving orders: {e}")
+            return error_response(
+                message="An error occurred while retrieving the orders.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def post(self, request, *args, **kwargs):
-        """Method to create an order"""
+        """Create a new order."""
         try:
             serializer = OrderSerializer(
                 data=request.data, context={"request": request}
@@ -51,14 +74,18 @@ class OrderCreateView(APIView):
 
 
 class OrderDetailView(APIView):
-    """Order detail view class"""
+    """
+    API view for retrieving, updating, and deleting a specific order.
+    Only authenticated users can access their orders.
+    """
 
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "delete"]
 
     def get(self, request, order_id, *args, **kwargs):
-        """Method to retrieve an order"""
+        """Retrieve a specific order by ID."""
         try:
-            order = Order.objects.get(id=order_id)
+            order = Order.objects.get(id=order_id, buyer=request.user)
             serializer = OrderSerializer(order)
             return success_response(
                 message="Order retrieved successfully.", data=serializer.data
@@ -74,14 +101,66 @@ class OrderDetailView(APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    def patch(self, request, order_id, *args, **kwargs):
+        """Update an order (only allowed for the owner)."""
+        try:
+            order = Order.objects.get(id=order_id, buyer=request.user)
+            serializer = OrderSerializer(
+                order, data=request.data, partial=True, context={"request": request}
+            )
+            if serializer.is_valid():
+                serializer.save()
+                return success_response(
+                    message="Order updated successfully.", data=serializer.data
+                )
+            return error_response(
+                message=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Order.DoesNotExist:
+            return error_response(
+                message="Order not found.", status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error updating order: {e}")
+            return error_response(
+                message="An error occurred while updating the order.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def delete(self, request, order_id, *args, **kwargs):
+        """Delete an order (only allowed for the owner)."""
+        try:
+            order = Order.objects.get(id=order_id, buyer=request.user)
+            order.delete()
+            return success_response(
+                message="Order deleted successfully.",
+                data={},
+                status_code=status.HTTP_204_NO_CONTENT,
+            )
+        except Order.DoesNotExist:
+            return error_response(
+                message="Order not found.", status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error deleting order: {e}")
+            return error_response(
+                message="An error occurred while deleting the order.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 class OrderStatusUpdateView(APIView):
-    """Order status update view class"""
+    """
+    API view for updating the status of an order.
+    Only admins can update order status.
+    """
 
     permission_classes = [IsAdminUser]
+    http_method_names = ["put"]
 
     def put(self, request, order_id, *args, **kwargs):
-        """Method to update an order status"""
+        """Update the status of an order."""
         try:
             order = Order.objects.get(id=order_id)
             serializer = OrderStatusUpdateSerializer(
@@ -107,21 +186,29 @@ class OrderStatusUpdateView(APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-# TODO: change the filter to an orderItem instead of an Order
+
 class SellerOrderListView(APIView):
-    """View to retrieve orders for the seller's products"""
+    """
+    API view to retrieve all orders that include products belonging to the seller.
+    Only authenticated sellers can access this view.
+    """
 
     permission_classes = [IsAuthenticated, IsSeller]
+    http_method_names = ["get"]
 
     def get(self, request, *args, **kwargs):
-        """Method to retrieve orders for the seller's products"""
+        """Retrieve all orders for the authenticated seller."""
         try:
             seller = request.user
-            orders = Order.objects.filter(items__product__seller=seller).distinct()
-            serializer = SellerOrderSerializer(
+            orders = OrderItem.objects.filter(product__seller=seller).distinct()
+            serializer = SellerOrderItemSerializer(
                 orders, many=True, context={"request": request}
             )
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return success_response(
+                message="Seller orders retrieved successfully.",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK,
+            )
         except Exception as e:
             logger.error(f"Error retrieving seller orders: {e}")
             return error_response(

@@ -46,7 +46,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(max_length=100, unique=True)
     password_hash = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
-    role = models.CharField(max_length=10, default='buyer')
+    role = models.CharField(max_length=10, default='buyer') # should be either buyer or seller, not rider
     image = models.ImageField(upload_to='profile_image/', null=True, blank=True)
     address = models.TextField(null=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -58,6 +58,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_rider = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 

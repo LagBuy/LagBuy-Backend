@@ -9,6 +9,6 @@ review_detail = ReviewViewSet.as_view(
 )
 
 urlpatterns = [
-    path("reviews/", review_list, name="review-list"),
-    path("reviews/<uuid:pk>/", review_detail, name="review-detail"),
+    path("", review_list, name="review-list"),
+    path("<uuid:pk>/", review_detail, name="review-detail"),
 ]

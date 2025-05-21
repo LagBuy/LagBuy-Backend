@@ -1,16 +1,17 @@
 import logging
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.exceptions import PermissionDenied #, ValidationError
+
 from django.core.exceptions import ValidationError
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.views import APIView
+
+from apps.products.models import Product
+from apps.userauth.permissions import IsOwnerSeller
+from common.utils.responses import error_response, success_response
 
 from .models import Coupon
-from .serializers import CouponSerializer, CouponBuyerSerializer
-from common.utils.responses import success_response, error_response
-from apps.userauth.permissions import IsOwnerSeller
-from apps.products.models import Product
+from .serializers import CouponBuyerSerializer, CouponSerializer
 
 logger = logging.getLogger(__name__)
 

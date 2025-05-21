@@ -11,7 +11,7 @@ from .models import Cart, CartItem
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
 class CartAPITest(TestCase):
-    """Test cases for the Cart API views."""
+    """Comprehensive test cases for the Cart and CartItem API views."""
 
     @classmethod
     def setUpTestData(cls):
@@ -24,94 +24,153 @@ class CartAPITest(TestCase):
             last_name="Test",
             phone_number="1234567890",
         )
+        cls.other_user = CustomUser.objects.create_user(
+            username="otheruser",
+            password="password",
+            email="otheruser@example.com",
+            first_name="Other",
+            last_name="User",
+            phone_number="0987654321",
+        )
         cls.product = Product.objects.create(
             name="Test Product",
             price=100.0,
-            images=[],
             description="Test Description",
             stock_quantity=10,
             seller=cls.user,
         )
+        cls.product2 = Product.objects.create(
+            name="Another Product",
+            price=50.0,
+            description="Another Description",
+            stock_quantity=5,
+            seller=cls.user,
+        )
         cls.cart = Cart.objects.create(user=cls.user)
         cls.cart_item = CartItem.objects.create(
-            user=cls.user, product=cls.product, quantity=2
+            cart=cls.cart, product=cls.product, quantity=2
         )
-        cls.cart.items.add(cls.cart_item)
 
     def setUp(self):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
     def test_get_cart(self):
-        """Test retrieving the cart."""
+        """Test retrieving the authenticated user's cart."""
         url = reverse_lazy("cart-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["user"], self.user.id)
-        self.assertEqual(response.data["total_price"], 200.0)
+        self.assertEqual(response.data["data"]["user"], self.user.id)
+        self.assertEqual(response.data["data"]["total_price"], 200.0)
+        self.assertEqual(len(response.data["data"]["items"]), 1)
+
+    def test_get_cart_creates_if_not_exists(self):
+        """Test that a cart is created if it does not exist."""
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse_lazy("cart-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["user"], self.other_user.id)
+        self.assertEqual(response.data["data"]["total_price"], 0)
+        self.assertEqual(len(response.data["data"]["items"]), 0)
+
+    def test_clear_cart(self):
+        """Test clearing the cart (deleting all items)."""
+        url = reverse_lazy("cart-list")
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.cart.refresh_from_db()
+        self.assertEqual(self.cart.items.count(), 0)
+
+    def test_clear_cart_not_found(self):
+        """Test clearing a cart that does not exist returns 404."""
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse_lazy("cart-list")
+        # Delete the cart if it exists
+        Cart.objects.filter(user=self.other_user).delete()
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_add_cart_item(self):
-        """Test adding an item to the cart."""
-        url = reverse_lazy("cartitem-list")
+        """Test adding a new item to the cart using add_item action."""
+        url = reverse_lazy("add-cartitem")
         data = {
-            "user": self.user.id,
-            "product": self.product.id,
-            "quantity": 1,
+            "product": self.product2.id,
+            "quantity": 3,
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["user"], self.user.id)
-        self.assertEqual(response.data["product"], self.product.id)
-        self.assertEqual(response.data["quantity"], 1)
+        self.assertEqual(response.data["data"]["product"]["id"], str(self.product2.id))
+        self.assertEqual(response.data["data"]["quantity"], 3)
+        self.assertEqual(
+            CartItem.objects.filter(cart=self.cart, product=self.product2).count(), 1
+        )
 
-    def test_update_cart_item(self):
-        """Test updating an item in the cart."""
-        url = reverse_lazy("cartitem-detail", args=[self.cart_item.id])
-        data = {
-            "quantity": 3,
-        }
-        response = self.client.patch(url, data, format="json")
+    def test_add_existing_cart_item_increments_quantity(self):
+        """Test adding an existing product to the cart increments its quantity using add_item action."""
+        url = reverse_lazy("add-cartitem")
+        data = {"product": self.product.id}
+        response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["quantity"], 3)
+        self.assertEqual(response.data["data"]["quantity"], 3)
+        self.cart_item.refresh_from_db()
+        self.assertEqual(self.cart_item.quantity, 3)
 
-    def test_delete_cart_item(self):
-        """Test deleting an item from the cart."""
+    def test_update_cart_item_quantity(self):
+        """Test updating the quantity of a cart item using add_item action (should set quantity)."""
+        url = reverse_lazy("add-cartitem")
+        data = {"product": self.product.id, "quantity": 5}
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.cart_item.refresh_from_db()
+        self.assertEqual(self.cart_item.quantity, 5)
+
+    def test_remove_cart_item(self):
+        """Test removing a cart item using remove_item action."""
+        url = reverse_lazy("remove-cartitem")
+        data = {"item_id": self.cart_item.id}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(CartItem.objects.filter(id=self.cart_item.id).exists())
+
+    def test_remove_cart_item_not_found(self):
+        """Test removing a non-existent cart item returns 404."""
+        url = reverse_lazy("remove-cartitem")
+        data = {"item_id": 99999}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_list_cart_items(self):
+        """Test listing all items in the user's cart."""
+        url = reverse_lazy("cartitem-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(
+            response.data["data"][0]["product"]["id"], str(self.product.id)
+        )
+
+    def test_retrieve_cart_item(self):
+        """Test retrieving a specific cart item."""
         url = reverse_lazy("cartitem-detail", args=[self.cart_item.id])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["id"], self.cart_item.id)
+        self.assertEqual(response.data["data"]["product"]["id"], str(self.product.id))
 
-    def test_get_cart_unauthenticated(self):
-        """Test that unauthenticated users cannot retrieve the cart."""
+    def test_cartitem_permissions_unauthenticated(self):
+        """Test that unauthenticated users cannot access cart item endpoints (read-only)."""
         self.client.force_authenticate(user=None)
-        url = reverse_lazy("cart-list")
+        url = reverse_lazy("cartitem-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        url = reverse_lazy("cartitem-detail", args=[self.cart_item.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_add_cart_item_unauthenticated(self):
-        """Test that unauthenticated users cannot add an item to the cart."""
-        self.client.force_authenticate(user=None)
-        url = reverse_lazy("cartitem-list")
-        data = {
-            "user": self.user.id,
-            "product": self.product.id,
-            "quantity": 1,
-        }
-        response = self.client.post(url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_update_cart_item_unauthenticated(self):
-        """Test that unauthenticated users cannot update an item in the cart."""
-        self.client.force_authenticate(user=None)
+    def test_cartitem_access_other_user(self):
+        """Test that a user cannot access another user's cart items (read-only)."""
+        self.client.force_authenticate(user=self.other_user)
         url = reverse_lazy("cartitem-detail", args=[self.cart_item.id])
-        data = {
-            "quantity": 3,
-        }
-        response = self.client.patch(url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_delete_cart_item_unauthenticated(self):
-        """Test that unauthenticated users cannot delete an item from the cart."""
-        self.client.force_authenticate(user=None)
-        url = reverse_lazy("cartitem-detail", args=[self.cart_item.id])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
