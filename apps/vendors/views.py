@@ -194,3 +194,39 @@ class LowStock(APIView):
                 message="An error occurred while getting Low stock count",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class CategoryDistribution(APIView):
+    """Get the category distribution of the vendor products"""
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+
+        try:
+            seller = request.user
+            products = seller.products.all()
+            categories = []
+            for product in products:
+                categories += product.categories.all()
+            categories_name = [i.name for i in categories]
+            
+            total = len(categories_name)
+            """Get the ratio of the categories across all products"""
+            categories = {}
+            for i in set(categories_name):
+                categories[i] = categories_name.count(i)
+
+            distribution = {i: (j/total)*100 for i, j in categories.items()}            
+            return success_response(
+                data=distribution,
+                message="Product Category Distribution in %"
+            )
+        except PermissionDenied as e:
+            return error_response(
+                message=e.detail, status_code=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Error while getting Category distribution: {e}")
+            return error_response(
+                message="An error occurred while getting Category distribution",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
