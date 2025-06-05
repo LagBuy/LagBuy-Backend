@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 
-from apps.userauth.permissions import IsASeller, IsOwnerSeller
+from apps.users.permissions import IsASeller, IsOwnerSeller
 from common.utils.responses import error_response, success_response
 
 from .filter import ProductFilter

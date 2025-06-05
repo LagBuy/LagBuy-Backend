@@ -61,3 +61,5 @@ class IsASeller(permissions.BasePermission):
             and request.user.is_authenticated
             and getattr(request.user, "role", None) == "seller"
         )
+
+# TODO: update all permission to reflect the update

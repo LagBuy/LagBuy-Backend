@@ -9,8 +9,8 @@ from .views import APIStatusView
 urlpatterns = [
     path('', APIStatusView.as_view(), name='api-status'),
     path("admin/", admin.site.urls),
-    path("api/v1/users/", include("apps.users.urls")),
-    path("api/v1/auth/", include("apps.userauth.urls"), name="user_authentication"),
+    path("api/v1/profile/", include("apps.users.urls"), name="user_profile"),
+    path("api/v1/auth/", include("apps.users.urls"), name="user_authentication"),
     path("api/v1/products/", include("apps.products.urls")),
     path("api/v1/orders/", include("apps.orders.urls"), name="orders"),
     path("api/v1/coupon/", include("apps.coupons.urls"), name="coupon"),

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from environs import Env
 
-from apps.userauth.settings import *
+from apps.users.settings import *
 
 env = Env()
 env.read_env()
@@ -49,13 +49,13 @@ INSTALLED_APPS = [
     "django_filters",
     # local
     "apps.users",
-    "apps.userauth",
     "apps.products",
     "apps.orders",
     "apps.cart",
     "apps.reviews",
     "apps.coupons",
     "apps.riders",
+    "apps.profiles",
     "common",
 ]
 
