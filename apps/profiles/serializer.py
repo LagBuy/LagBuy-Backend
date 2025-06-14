@@ -13,6 +13,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'phone_number',
             'image',
             'address',
+            'gender',
+            'dob',
+            'state',
+            'city',
         )
 
 

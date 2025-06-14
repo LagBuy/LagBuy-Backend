@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.coupons.models import Coupon
 from apps.products.models import Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 
 
 class Order(models.Model):

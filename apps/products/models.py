@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.coupons.models import Coupon
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 
 
 class Category(models.Model):

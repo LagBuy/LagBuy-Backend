@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from apps.userAuth.models import Role
 
 
 class IsOwnerBuyer(permissions.BasePermission):
@@ -59,7 +60,7 @@ class IsASeller(permissions.BasePermission):
         return (
             request.user
             and request.user.is_authenticated
-            and getattr(request.user, "role", None) == "seller"
+            and 'vendor' in [i.name for i in request.user.roles.all()]
         )
 
 # TODO: update all permission to reflect the update

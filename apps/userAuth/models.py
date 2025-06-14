@@ -23,7 +23,7 @@ class CustomUserManager(BaseUserManager):
 
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        # user_role = Role.objects.get_or_create(name='user')
+        # user_role = Role.objects.get_or_create(name='user')[0]
         # user.roles.add(user_role)
         user.set_password(password)  # Stores hashed password
         user.save(using=self._db)

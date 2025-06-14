@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.products.models import Product
-from apps.users.permissions import IsOwnerSeller
+from apps.userAuth.permissions import IsOwnerSeller
 from common.utils.responses import error_response, success_response
 
 from .models import Coupon
