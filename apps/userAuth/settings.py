@@ -34,7 +34,10 @@ ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
 SITE_ID = 1
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "sgbackend.SendGridBackend"
+SENDGRID_API_KEY = os.environ["SENDGRID_API_KEY"]
+DEFAULT_FROM_EMAIL = "lagbuy008@gmail.com"
 # EMAIL_USE_TLS = True
 # EMAIL_HOST = 'smtp.gmail.com'
 # EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
