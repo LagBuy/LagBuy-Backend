@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import CategoryViewSet, ProductViewSet
+from .views import CategoryViewSet, ImageUploadView, ProductViewSet
 
 category_list = CategoryViewSet.as_view({"get": "list", "post": "create"})
 
@@ -24,4 +24,5 @@ urlpatterns = [
         product_update_stock,
         name="product-update-stock",
     ),
+    path("upload-image/", ImageUploadView.as_view(), name="image-upload"),
 ]
