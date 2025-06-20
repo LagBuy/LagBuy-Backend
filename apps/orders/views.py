@@ -6,9 +6,9 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.views import APIView
 
 from common.utils.responses import error_response, success_response
+from apps.userAuth.permissions import IsASeller
 
 from .models import Order, OrderItem
-from .permissions import IsSeller
 from .serializers import (
     OrderSerializer,
     OrderStatusUpdateSerializer,
@@ -193,7 +193,7 @@ class SellerOrderListView(APIView):
     Only authenticated sellers can access this view.
     """
 
-    permission_classes = [IsAuthenticated, IsSeller]
+    permission_classes = [IsAuthenticated, IsASeller]
     http_method_names = ["get"]
 
     def get(self, request, *args, **kwargs):

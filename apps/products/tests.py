@@ -1,10 +1,12 @@
+import datetime
+
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser, Role
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -14,22 +16,22 @@ class CategoryAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
+
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+
         cls.admin = CustomUser.objects.create_superuser(
-            username="admin",
-            password="password",
             email="admin@example.com",
-            first_name="Admin",
-            last_name="User",
-            phone_number="1122334455",
-        )
-        cls.user = CustomUser.objects.create_user(
-            username="user",
             password="password",
-            email="user@example.com",
-            first_name="User",
-            last_name="Test",
-            phone_number="1234567890",
         )
+        cls.admin.roles.add(cls.user_role)
+
+        cls.user = CustomUser.objects.create_user(
+            email="user@example.com",
+            password="password",
+        )
+        cls.user.roles.add(cls.user_role)
+
         cls.category = Category.objects.create(
             name="Test Category",
             description="Test Description",
@@ -103,23 +105,23 @@ class ProductAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
+
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+
         cls.seller = CustomUser.objects.create_user(
-            username="seller",
-            password="password",
             email="seller@example.com",
-            first_name="Seller",
-            last_name="User",
-            phone_number="0987654321",
-            role="seller",
-        )
-        cls.buyer = CustomUser.objects.create_user(
-            username="buyer",
             password="password",
-            email="buyer@example.com",
-            first_name="Buyer",
-            last_name="User",
-            phone_number="1234567890",
         )
+        cls.seller.roles.add(cls.user_role)
+        cls.seller.roles.add(cls.vendor_role)
+
+        cls.buyer = CustomUser.objects.create_user(
+            email="buyer@example.com",
+            password="password",
+        )
+        cls.buyer.roles.add(cls.user_role)
+
         cls.category = Category.objects.create(
             name="Test Category",
             description="Test Description",

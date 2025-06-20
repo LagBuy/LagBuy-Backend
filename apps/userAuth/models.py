@@ -5,26 +5,31 @@ from django.utils import timezone
 import uuid
 
 
+class Role(models.Model):
+    '''Define user roles. Can be either or all of `user`, `seller`, `rider`'''
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
+    name = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
 class CustomUserManager(BaseUserManager):
     """User manager for the custom user"""
-    def create_user(self, email, first_name, last_name, phone_number, password=None, **extra_fields):
+    def create_user(self, email, password=None, **extra_fields):
         """Create a custom user"""
         if not email:
             raise ValueError("The Email field must be set")
-        if not first_name:
-            raise ValueError("The First Name field must be set")
-        if not last_name:
-            raise ValueError("The Last Name field must be set")
-        if not phone_number:
-            raise ValueError("The Phone Number field must be set")
-        
+
         email = self.normalize_email(email)
-        user = self.model(email=email, first_name=first_name, last_name=last_name, phone_number=phone_number, **extra_fields)
+        user = self.model(email=email, **extra_fields)
+        # user_role = Role.objects.get_or_create(name='user')[0]
+        # user.roles.add(user_role)
         user.set_password(password)  # Stores hashed password
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, email, first_name, last_name, phone_number, password=None, **extra_fields):
+    def create_superuser(self, email, password=None, **extra_fields):
         """Create a super user"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -34,44 +39,35 @@ class CustomUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
-        return self.create_user(email, first_name, last_name, phone_number, password, **extra_fields)
+        return self.create_user(email, password, **extra_fields)
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """Custom user class"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    username = models.CharField(null=True, max_length=50, unique=True)
     email = models.EmailField(max_length=100, unique=True)
     password_hash = models.CharField(max_length=225)
-    phone_number = models.CharField(max_length=20, null=False)
-    role = models.CharField(max_length=10, default='buyer') # should be either buyer or seller, not rider
-    image = models.ImageField(upload_to='profile_image/', null=True, blank=True)
-    address = models.TextField(null=True)
+
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=10, default='active')
 
     # Relationships
     # wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE, related_name='user')
+    roles = models.ManyToManyField(Role, related_name='users')
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    is_rider = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 
     """Custom default fields"""
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
-
 
     class Meta:
-        verbose_name = "User Profile"
-        verbose_name_plural = "User Profiles"
+        verbose_name = "User"
+        verbose_name_plural = "Users"
 
     def __str__(self):
         """object return string"""
-        return f'{self.first_name} {self.last_name} [{self.email}]'
+        return f'User: [{self.email}]'
 

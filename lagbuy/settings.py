@@ -1,9 +1,8 @@
 import os
 from pathlib import Path
-
 from environs import Env
 
-from apps.userauth.settings import *
+from apps.userAuth.settings import *
 
 env = Env()
 env.read_env()
@@ -22,7 +21,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
 ALLOWED_HOSTS = ["0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
-AUTH_USER_MODEL = "users.CustomUser"
+AUTH_USER_MODEL = "userAuth.CustomUser"
 
 # Application definition
 
@@ -48,15 +47,16 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_filters",
     # local
-    "apps.users",
-    "apps.userauth",
+    "apps.userAuth",
     "apps.products",
     "apps.orders",
     "apps.cart",
     "apps.reviews",
     "apps.coupons",
     "apps.riders",
+    "apps.profiles",
     "common",
+    "core",
 ]
 
 MIDDLEWARE = [

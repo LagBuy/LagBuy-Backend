@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 import os
 
 email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin")

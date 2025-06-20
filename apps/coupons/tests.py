@@ -1,3 +1,5 @@
+import datetime
+
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
 from rest_framework import status
@@ -5,8 +7,9 @@ from rest_framework.test import APIClient
 from django.utils import timezone
 
 from apps.coupons.models import Coupon
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser, Role
 from apps.products.models import Product
+from apps.profiles.models import UsersProfile, VendorsProfile, RidersProfile
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -16,14 +19,22 @@ class CouponModelTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.seller = CustomUser.objects.create_user(
-            username="testseller",
-            password="testpassword",
             email="seller@test.com",
+            password="testpassword",
+        )
+        cls.sellerProfile = UsersProfile.objects.create(
+            user=cls.seller,
             first_name="Seller",
             last_name="Test",
             phone_number="0909222002",
-            role="seller",
+            gender='male',
+            dob=datetime.date(2020, 7, 12),
         )
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.seller.roles.add(cls.user_role)
+        cls.seller.roles.add(cls.vendor_role)
+
         cls.product1 = Product.objects.create(
             name="Test Product",
             price=1000,
@@ -87,31 +98,53 @@ class CouponAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
+
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+
         cls.buyer = CustomUser.objects.create_user(
-            username="testbuyer",
-            password="testpassword",
             email="buyer@test.com",
+            password="testpassword",
+        )
+        cls.buyerProfile = UsersProfile.objects.create(
+            user=cls.buyer,
             first_name="Buyer",
             last_name="Test",
             phone_number="0909222002",
+            gender='male',
+            dob=datetime.date(2020, 7, 12),
         )
+        cls.buyer.roles.add(cls.user_role)
+
         cls.seller = CustomUser.objects.create_user(
-            username="testseller",
-            password="testpassword",
             email="seller@test.com",
+            password="testpassword",
+        )
+        cls.sellerProfile = UsersProfile.objects.create(
+            user=cls.seller,
             first_name="Seller",
             last_name="Test",
             phone_number="0909222002",
-            role="seller",
+            gender='male',
+            dob=datetime.date(2020, 7, 12),
         )
+        cls.seller.roles.add(cls.user_role)
+        cls.seller.roles.add(cls.vendor_role)
+
         cls.admin = CustomUser.objects.create_superuser(
-            username="admin",
-            password="password",
             email="admin@test.com",
+            password="password",
+        )
+        cls.adminProfile = UsersProfile.objects.create(
+            user=cls.admin,
             first_name="Admin",
             last_name="Test",
             phone_number="0202222332",
+            gender='male',
+            dob=datetime.date(2020, 7, 12),
         )
+        cls.admin.roles.add(cls.vendor_role)
+
         cls.product1 = Product.objects.create(
             name="Test Product",
             price=1000,
@@ -260,6 +293,7 @@ class CouponAPITest(TestCase):
             "max_purchase_quantity": 50,
             "usage_limit": 10,
         }
+        # TODO: use patch not put and test that unedited fields are not changed
         response = self.client.put(url, data, format="json")
         self.product1.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)

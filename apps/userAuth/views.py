@@ -21,3 +21,6 @@ class LoggedUser(generics.RetrieveAPIView):
     def get_object(self):
         """object to be used"""
         return self.request.user
+
+# TODO: create a view to see individual users detail (vendor and admin only)
+# TODO: create a view to see all users (admin only)
