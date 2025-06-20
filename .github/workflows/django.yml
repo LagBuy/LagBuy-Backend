@@ -24,8 +24,9 @@ jobs:
         pip install -r requirements.txt
         echo 'SECRET_KEY=django-insecure-githubcitest
         DATABASE_URL=sqlite:///db.sqlite3' > .env
-        echo "DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> .env
 
     - name: Run Tests
+      env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       run: |
         python manage.py test
