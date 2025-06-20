@@ -27,6 +27,6 @@ jobs:
 
     - name: Run Tests
       env:
-          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       run: |
         python manage.py test
