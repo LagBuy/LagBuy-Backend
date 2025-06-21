@@ -4,9 +4,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.userAuth.permissions import IsASeller, IsOwnerSeller
+from common.services.storage import StorageService
 from common.utils.responses import error_response, success_response
 
 from .filter import ProductFilter
@@ -264,3 +268,32 @@ class ProductViewSet(viewsets.ModelViewSet):
                 "An error occurred while updating stock.",
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class ImageUploadView(APIView):
+    """
+    API endpoint for uploading product images.
+    Handles file uploads and returns the image URL on success.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        uploaded_image = request.FILES.get("image")
+        if not uploaded_image:
+            return Response(
+                {"detail": "No image file provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        storage = StorageService()
+        file_url = storage.upload_file(
+            uploaded_image, uploaded_image.name, uploaded_image.content_type
+        )
+        if file_url:
+            return Response({"url": file_url}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"detail": "Failed to upload image."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

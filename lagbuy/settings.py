@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from environs import Env
 
 from apps.userAuth.settings import *
@@ -151,6 +152,12 @@ else:
         }
     }
 
+
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID = env.str("AWS_ACCESS_KEY_ID", default=None)
+AWS_SECRET_ACCESS_KEY = env.str("AWS_SECRET_ACCESS_KEY", default=None)
+AWS_STORAGE_BUCKET_NAME = env.str("AWS_STORAGE_BUCKET_NAME", default=None)
+AWS_S3_REGION_NAME = env.str("AWS_S3_REGION_NAME", default=None)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
