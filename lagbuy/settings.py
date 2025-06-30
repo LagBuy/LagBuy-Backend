@@ -20,9 +20,10 @@ APPEND_SLASH = True  #
 MEDIA_URL = "/media/"  #
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
-frontendUrl = "https://main.d3bh00jxnnan6l.amplifyapp.com"
+frontendUrl = "https://shop.lagbuy.com"
+ridersUrl = "https://riders.lagbuy.com"
 
-ALLOWED_HOSTS = [frontendUrl, "*", "0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [frontendUrl, ridersUrl, "*", "0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "users.CustomUser"
 
@@ -100,13 +101,16 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ORIGIN_WHITELIST = (
     frontendUrl,
+    ridersUrl,
+    "http://localhost:5174",
     "http://localhost:5173",
+    "http://0.0.0.0:5174",
     "http://0.0.0.0:5173",
     "http://0.0.0.0:3000",
     "http://0.0.0.0:8000",  # TODO: Set this to the frontend URL
 )
 
-CSRF_TRUSTED_ORIGINS = [frontendUrl, "http://localhost:5173", "http://0.0.0.0:5173", "http://0.0.0.0:3000"]  # TODO: Set this to the frontend URL
+CSRF_TRUSTED_ORIGINS = [frontendUrl, ridersUrl, "http://localhost:5174", "http://localhost:5173", "http://0.0.0.0:5174", "http://0.0.0.0:5173", "http://0.0.0.0:3000"]  # TODO: Set this to the frontend URL
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -120,6 +124,9 @@ CORS_ALLOW_HEADERS = ["accept",
                       "x-csrftoken",
                       "x-requested-with"]
 CSRF_TRUSTED_ORIGINS = [
+    frontendUrl,
+    ridersUrl,
+    "http://0.0.0.0:5174",
     "http://0.0.0.0:5173",
     "http://0.0.0.0:3000",
 ]  # TODO: Set this to the frontend URL
