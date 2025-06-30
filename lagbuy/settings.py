@@ -3,7 +3,7 @@ from pathlib import Path
 
 from environs import Env
 
-from apps.userauth.settings import *
+from apps.userAuth.settings import *
 
 env = Env()
 env.read_env()
@@ -25,7 +25,7 @@ ridersUrl = "https://riders.lagbuy.com"
 
 ALLOWED_HOSTS = [frontendUrl, ridersUrl, "*", "0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
-AUTH_USER_MODEL = "users.CustomUser"
+AUTH_USER_MODEL = "userAuth.CustomUser"
 
 # Application definition
 
@@ -51,15 +51,16 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_filters",
     # local
-    "apps.users",
-    "apps.userauth",
+    "apps.userAuth",
     "apps.products",
     "apps.orders",
     "apps.cart",
     "apps.reviews",
     "apps.coupons",
     "apps.riders",
+    "apps.profiles",
     "common",
+    "core",
 ]
 
 MIDDLEWARE = [
@@ -175,6 +176,12 @@ else:
         }
     }
 
+
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID = env.str("AWS_ACCESS_KEY_ID", default=None)
+AWS_SECRET_ACCESS_KEY = env.str("AWS_SECRET_ACCESS_KEY", default=None)
+AWS_STORAGE_BUCKET_NAME = env.str("AWS_STORAGE_BUCKET_NAME", default=None)
+AWS_S3_REGION_NAME = env.str("AWS_S3_REGION_NAME", default=None)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

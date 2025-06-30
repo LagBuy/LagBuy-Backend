@@ -1,10 +1,12 @@
+import datetime
+
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.products.models import Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser, Role
 
 from .models import Order, OrderItem
 
@@ -16,31 +18,29 @@ class OrderAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
+
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+
         cls.buyer = CustomUser.objects.create_user(
-            username="buyer",
-            password="password",
             email="buyer@example.com",
-            first_name="Buyer",
-            last_name="User",
-            phone_number="1234567890",
+            password="password",
         )
+        cls.buyer.roles.add(cls.user_role)
+
         cls.seller = CustomUser.objects.create_user(
-            username="seller",
-            password="password",
             email="seller@example.com",
-            first_name="Seller",
-            last_name="User",
-            phone_number="0987654321",
-            role="seller",
-        )
-        cls.admin = CustomUser.objects.create_superuser(
-            username="admin",
             password="password",
-            email="admin@example.com",
-            first_name="Admin",
-            last_name="User",
-            phone_number="1122334455",
         )
+        cls.seller.roles.add(cls.user_role)
+        cls.seller.roles.add(cls.vendor_role)
+
+        cls.admin = CustomUser.objects.create_superuser(
+            email="admin@example.com",
+            password="password",
+        )
+        cls.admin.roles.add(cls.user_role)
+
         cls.product = Product.objects.create(
             name="Test Product",
             price=100.0,
