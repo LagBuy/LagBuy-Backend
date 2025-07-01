@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.coupons",
     "apps.riders",
     "apps.profiles",
+    "apps.payments",
     "common",
     "core",
 ]
