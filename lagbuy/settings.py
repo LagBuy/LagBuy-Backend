@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.riders",
     "apps.vendors",
     "apps.profiles",
+    "apps.payments",
     "common",
     "core",
 ]
