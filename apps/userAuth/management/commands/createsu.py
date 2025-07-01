@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from apps.userAuth.models import CustomUser
+from apps.profiles.models import UsersProfile
 import os
 
 email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin")
@@ -13,4 +14,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if not CustomUser.objects.filter(email=email).exists():
-            CustomUser.objects.create_superuser(email, first_name, last_name, phone_number, password), 
+            user = CustomUser.objects.create_superuser(email, password)
+            UsersProfile.objects.create(
+                user=user, first_name=first_name, last_name=last_name, phone_number=phone_number
+            )
