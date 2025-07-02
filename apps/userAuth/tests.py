@@ -108,11 +108,10 @@ class UserAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(str(response.data['gender'][0]), 'This field is required.')
+        self.assertEqual(str(response.data['phone_number'][0]), 'This field is required.')
 
     def test_user_login(self):
         """Test user login endpoint"""
