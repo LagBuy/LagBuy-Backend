@@ -2,15 +2,13 @@ import hashlib
 import hmac
 import json
 import logging
-from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,7 +17,6 @@ from apps.orders.serializers import OrderSerializer
 
 from .models import Payment
 from .serializers import (
-    CreateRefundSerializer,
     InitializeTransactionSerializer,
     VerifyPaymentSerializer,
 )
@@ -144,37 +141,6 @@ class VerifyPaymentView(APIView):
             )
 
 
-class CreateRefundView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-    http_method_names = ["post"]
-
-    def post(self, request):
-        serializer = CreateRefundSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            transaction = Payment.objects.get(
-                ref=serializer.validated_data["transaction_id"]
-            )
-            response = payment_service.create_refund(**serializer.validated_data)
-            transaction.save()
-            return Response(response, status=status.HTTP_200_OK)
-        except Payment.DoesNotExist as e:
-            logger.warning(f"Transaction.DoesNotExist: {e}")
-            return Response(
-                {"detail": "Transaction not found or not allowed."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except Exception as e:
-            logger.error(f"Exception in CreateRefundView.post: {e}", exc_info=True)
-            return Response(
-                {
-                    "detail": "Unable to process refund at this time. Please try again later or contact support if the issue persists."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-
 class WebhookView(APIView):
     http_method_names = ["post"]
 
@@ -237,7 +203,7 @@ class WebhookView(APIView):
                     order_instance.save(update_fields=["payment_status"])
             except Payment.DoesNotExist as e:
                 logger.warning(
-                    f"Transaction.DoesNotExist in WebhookView._handle_event: {e}"
+                    f"Payment.DoesNotExist in WebhookView._handle_event: {e}"
                 )
                 return JsonResponse({"detail": "Transaction not found."}, status=404)
             except Exception as e:
