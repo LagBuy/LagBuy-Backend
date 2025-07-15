@@ -4,7 +4,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.products.models import Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 
 
 class Review(models.Model):

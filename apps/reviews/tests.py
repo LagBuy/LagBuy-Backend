@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.products.models import Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser, Role
 
 from .models import Review
 
@@ -16,22 +16,21 @@ class ReviewAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
+        cls.user_role = Role.objects.create(name='user')
+        cls.vendor_role = Role.objects.create(name='vendor')
+
         cls.user = CustomUser.objects.create_user(
-            username="user",
-            password="password",
             email="user@example.com",
-            first_name="User",
-            last_name="Test",
-            phone_number="1234567890",
-        )
-        cls.other_user = CustomUser.objects.create_user(
-            username="other_user",
             password="password",
-            email="other_user@example.com",
-            first_name="Other",
-            last_name="User",
-            phone_number="0987654321",
         )
+        cls.user.roles.add(cls.user_role)
+
+        cls.other_user = CustomUser.objects.create_user(
+            email="otheruser@example.com",
+            password="password",
+        )
+        cls.other_user.roles.add(cls.user_role)
+
         cls.product = Product.objects.create(
             name="Test Product",
             price=100.0,

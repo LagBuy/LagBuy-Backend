@@ -1,7 +1,7 @@
 from django.db import models
 
 from apps.products.models import Product
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 
 
 class Cart(models.Model):

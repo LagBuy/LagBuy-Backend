@@ -5,18 +5,23 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from .views import APIStatusView
+from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
 
 urlpatterns = [
-    path('', APIStatusView.as_view(), name='api-status'),
+    path("", APIStatusView.as_view(), name='api-status'),
     path("admin/", admin.site.urls),
-    path("api/v1/users/", include("apps.users.urls")),
-    path("api/v1/auth/", include("apps.userauth.urls"), name="user_authentication"),
+    path("api/v1/auth/", include("apps.userAuth.urls"), name="user_authentication"),
     path("api/v1/products/", include("apps.products.urls")),
     path("api/v1/orders/", include("apps.orders.urls"), name="orders"),
     path("api/v1/coupon/", include("apps.coupons.urls"), name="coupon"),
     path("api/v1/cart/", include("apps.cart.urls"), name="cart"),
     path("api/v1/reviews/", include("apps.reviews.urls"), name="reviews"),
     path("api/v1/vendors/", include("apps.vendors.urls"), name="analytic"),
+
+    # password reset
+    path("password/reset/<uidb64>/<token>/",
+          PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+
     # schema
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

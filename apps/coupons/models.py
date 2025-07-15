@@ -4,7 +4,7 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
-from apps.users.models import CustomUser
+from apps.userAuth.models import CustomUser
 
 
 class Coupon(models.Model):

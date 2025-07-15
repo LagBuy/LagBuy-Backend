@@ -26,5 +26,7 @@ jobs:
         DATABASE_URL=sqlite:///db.sqlite3' > .env
 
     - name: Run Tests
+      env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       run: |
         python manage.py test
