@@ -189,7 +189,7 @@ class LowStock(APIView):
             low_stock_count = low_stock.count()
 
             return success_response(
-                    message="Low Stock (products with stock quantity less than 5)",
+                    message="Low Stock (products with stock quantity less than `lt` query argument, defaults to 5)",
                     data = {
                         "low_stock_products": low_stock,
                         "low_stock_count": low_stock_count,
