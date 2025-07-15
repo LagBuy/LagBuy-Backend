@@ -13,13 +13,13 @@ from rest_framework.exceptions import PermissionDenied
 from common.utils.responses import success_response, error_response
 from apps.products.models import Product
 from apps.orders.models import OrderItem, Order
-from apps.userauth.permissions import IsOwnerSeller, IsASeller
+from apps.userAuth.permissions import IsOwnerSeller, IsASeller
 
 
 logger = logging.getLogger(__name__)
 
 class TotalSale(APIView):
-    """Get total sales of the seller"""
+    """Get total sales of the vendor"""
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
@@ -49,7 +49,7 @@ class TotalSale(APIView):
             )
 
 class TotalProduct(APIView):
-    """Get total product a seller has"""
+    """Get total product a vendor has"""
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
@@ -74,13 +74,21 @@ class TotalProduct(APIView):
     
 class NewCustomers(APIView):
     """Get the number of new customers purchasing from
-    a seller in the past 30 days"""
+    a seller in a specified number of days. Number of days
+    can be specified using the query parameter `days`. Defaults to 30 days if not specified"""
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
+        days = request.query_params.get('days', 5)
+        days = int(days)
+        if days < 0:
+            return error_response(
+                message="Invalid number of days. Days can't be negative",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
-            one_month_ago = timezone.now() - timedelta(days=30)
+            days_ago = timezone.now() - timedelta(days=days)
             seller = request.user
 
             first_orders = (OrderItem.objects
@@ -92,10 +100,10 @@ class NewCustomers(APIView):
                 OrderItem.objects
                 .filter(product__seller=seller)
                 .annotate(first_order_date=Subquery(first_orders))
-                .filter(first_order_date__gte=one_month_ago)
-                .values('order__buyer__first_name', 'order__buyer__last_name')
+                .filter(first_order_date__gte=days_ago)
+                .values('order__buyer__user_profile__first_name', 'order__buyer__user_profile__last_name')
                 .distinct()
-                .annotate(first_name=F('order__buyer__first_name'), last_name=F('order__buyer__last_name'))
+                .annotate(first_name=F('order__buyer__user_profile__first_name'), last_name=F('order__buyer__user_profile__last_name'))
                 .values('first_name', 'last_name')
             )
             new_customers_count = new_customers.count()
@@ -166,14 +174,17 @@ class SalesPerMonth(APIView):
             )
 
 class LowStock(APIView):
-    """Get count of products with low stock (stock quantity less than 5)"""
+    """Get count of products with low stock (stock quantity less than 5 by default or
+    any quantity you set using the query parameter `lt`)"""
 
     permission_classes = [IsAuthenticated, IsASeller]
     def get(self, request, *args, **kwargs):
+        lt = request.query_params.get('lt', 5)
+        lt = int(lt)
 
         try:
             seller = request.user
-            low_stock = seller.products.filter(stock_quantity__lt=5).values(
+            low_stock = seller.products.filter(stock_quantity__lt=lt).values(
                 'name', 'stock_quantity')
             low_stock_count = low_stock.count()
 
