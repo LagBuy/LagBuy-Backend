@@ -160,6 +160,11 @@ AWS_SECRET_ACCESS_KEY = env.str("AWS_SECRET_ACCESS_KEY", default=None)
 AWS_STORAGE_BUCKET_NAME = env.str("AWS_STORAGE_BUCKET_NAME", default=None)
 AWS_S3_REGION_NAME = env.str("AWS_S3_REGION_NAME", default=None)
 
+# Paystack Configuration
+PAYSTACK_BASE_URL = "https://api.paystack.co"
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_TEST_SECRET_KEY")
+IP_WHITELIST = ["52.31.139.75", "52.49.173.169", "52.214.14.220"]
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
