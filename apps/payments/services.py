@@ -9,8 +9,8 @@ class PaymentService:
     BASE_URL = settings.PAYSTACK_BASE_URL
     HEADERS = {"Content-Type": "application/json"}
 
-    def __init__(self, secret_key: str):
-        self.secret_key = secret_key
+    def __init__(self):
+        self.secret_key = settings.PAYSTACK_SECRET_KEY
         self.headers = {**self.HEADERS, "Authorization": f"Bearer {self.secret_key}"}
 
     def _make_request(

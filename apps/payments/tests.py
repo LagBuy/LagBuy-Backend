@@ -10,9 +10,8 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from apps.orders.models import Order
+from apps.payments.models import Payment
 from apps.userAuth.models import CustomUser
-
-from .models import Payment
 
 User = get_user_model()
 
@@ -68,9 +67,16 @@ class InitializeTransactionViewTestCase(APITestCase):
 
     def test_initialize_transaction_already_paid(self):
         """Test initialization for already paid order"""
-        self.order.payment_status = Order.PaymentStatus.PAID
-        self.order.save()
+        from apps.payments.models import Payment, PaymentStatus
 
+        Payment.objects.create(
+            user=self.user,
+            order=self.order,
+            amount=self.order.total_price,
+            currency="NGN",
+            ref="test_ref_already_paid",
+            payment_status=PaymentStatus.PAID,
+        )
         self.client.force_authenticate(user=self.user)
         data = {"order": str(self.order.id)}
         response = self.client.post(self.url, data)
@@ -138,12 +144,15 @@ class VerifyPaymentViewTestCase(APITestCase):
         self.order = Order.objects.create(
             buyer=self.user, delivery_address="123 Test Street"
         )
+        from apps.payments.models import Payment, PaymentStatus
+
         self.payment = Payment.objects.create(
             user=self.user,
             order=self.order,
             amount=Decimal("100.00"),
             ref="test_ref_123",
             currency="NGN",
+            payment_status=PaymentStatus.PENDING,
         )
 
     def test_verify_payment_unauthenticated(self):
@@ -183,7 +192,7 @@ class VerifyPaymentViewTestCase(APITestCase):
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.assertTrue(self.payment.verified)
-        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
+        self.assertEqual(self.order.payment_status, "paid")
 
     @patch("apps.payments.views.payment_service.verify_payment")
     def test_verify_payment_failed(self, mock_verify):
@@ -207,7 +216,8 @@ class VerifyPaymentViewTestCase(APITestCase):
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.assertFalse(self.payment.verified)
-        self.assertEqual(self.order.payment_status, Order.PaymentStatus.UNPAID)
+        # If payment exists and is pending, expect 'pending'
+        self.assertEqual(self.order.payment_status, "pending")
 
     def test_verify_payment_not_found(self):
         """Test verification with non-existent payment reference"""

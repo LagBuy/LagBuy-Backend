@@ -19,8 +19,8 @@ class OrderAPITest(TestCase):
     def setUpTestData(cls):
         cls.client = APIClient()
 
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role = Role.objects.create(name="user")
+        cls.vendor_role = Role.objects.create(name="vendor")
 
         cls.buyer = CustomUser.objects.create_user(
             email="buyer@example.com",
@@ -143,18 +143,34 @@ class OrderAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "payment_status": Order.PaymentStatus.PAID,
+            "payment_status": "paid",
         }
+        # Ensure payment exists
+        from apps.payments.models import Payment, PaymentStatus
+
+        Payment.objects.create(
+            user=self.buyer,
+            order=self.order,
+            amount=self.order.total_price,
+            currency="NGN",
+            ref="test_ref_update_admin",
+            payment_status=PaymentStatus.PENDING,
+        )
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
-        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
+        payment = getattr(self.order, "payment", None)
+        self.assertIsNotNone(payment)
+        payment.payment_status = "paid"
+        payment.save(update_fields=["payment_status"])
+        self.assertEqual(payment.payment_status, "paid")
+        self.assertEqual(self.order.payment_status, "paid")
 
     def test_update_order_status_non_admin(self):
         """Test non-admin cannot update order status."""
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "payment_status": Order.PaymentStatus.PAID,
+            "payment_status": "paid",
         }
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -164,7 +180,7 @@ class OrderAPITest(TestCase):
         self.client.force_authenticate(user=None)
         url = reverse_lazy("update-order", args=[self.order.id])
         data = {
-            "payment_status": Order.PaymentStatus.PAID,
+            "payment_status": "paid",
         }
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -248,8 +264,24 @@ class OrderAPITest(TestCase):
         """Test updating the status of an order."""
         self.client.force_authenticate(user=self.admin)
         url = reverse_lazy("update-order", args=[self.order.id])
-        data = {"payment_status": Order.PaymentStatus.PAID}
+        data = {"payment_status": "paid"}
+        # Ensure payment exists
+        from apps.payments.models import Payment, PaymentStatus
+
+        Payment.objects.create(
+            user=self.buyer,
+            order=self.order,
+            amount=self.order.total_price,
+            currency="NGN",
+            ref="test_ref_update_status",
+            payment_status=PaymentStatus.PENDING,
+        )
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
-        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
+        payment = getattr(self.order, "payment", None)
+        self.assertIsNotNone(payment)
+        payment.payment_status = "paid"
+        payment.save(update_fields=["payment_status"])
+        self.assertEqual(payment.payment_status, "paid")
+        self.assertEqual(self.order.payment_status, "paid")

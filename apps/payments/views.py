@@ -16,13 +16,12 @@ from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
 from .models import Payment
-from .serializers import (
-    InitializeTransactionSerializer,
-    VerifyPaymentSerializer,
-)
+from .serializers import InitializeTransactionSerializer, VerifyPaymentSerializer
 from .services import PaymentService
 
-payment_service = PaymentService(secret_key=settings.PAYSTACK_SECRET_KEY)
+from .models import PaymentStatus
+
+payment_service = PaymentService()
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,8 @@ class InitializeTransactionView(APIView):
             return Response(
                 {"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND
             )
-        if order.payment_status == Order.PaymentStatus.PAID:
+        payment = getattr(order, "payment", None)
+        if payment and payment.payment_status == PaymentStatus.PAID:
             return Response(
                 {"detail": "Order has already been paid for."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -53,7 +53,12 @@ class InitializeTransactionView(APIView):
         # TODO: Modify this to account for the shipping costs as well.
         amount = order.total_price
         # Convert to kobo (Paystack expects amounts in kobo)
-        amount_in_kobo = int(amount * 100)
+        amount_in_kobo = int(round(float(amount) * 100))
+        if amount_in_kobo <= 0:
+            logger.error("Amount to initialize transaction must be greater than zero.")
+            return Response(
+                {"detail": "Invalid order amount."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             # Initialize payment transaction
@@ -68,6 +73,7 @@ class InitializeTransactionView(APIView):
                 amount=amount,
                 currency="NGN",
                 ref=response.get("data", {}).get("reference"),
+                payment_status=PaymentStatus.PENDING,
             )
             return Response(response, status=status.HTTP_200_OK)
         except Exception as e:
@@ -96,11 +102,9 @@ class VerifyPaymentView(APIView):
             transaction = Payment.objects.get(ref=reference, user=request.user)
 
             if response.get("status", False):
-                order_obj = transaction.order
-                order_obj.payment_status = Order.PaymentStatus.PAID
+                transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
-                transaction.save()
-                order_obj.save(update_fields=["payment_status"])
+                transaction.save(update_fields=["payment_status", "verified"])
 
             data = response.get("data", {})
             if response.get("status", False):
@@ -196,11 +200,10 @@ class WebhookView(APIView):
                 payment.verified = True
                 payment.save()
 
-                # Mark the order as paid
-                order_instance = payment.order
-                if not order_instance.payment_status == Order.PaymentStatus.PAID:
-                    order_instance.payment_status = Order.PaymentStatus.PAID
-                    order_instance.save(update_fields=["payment_status"])
+                # Mark the payment as paid
+                if payment.payment_status != PaymentStatus.PAID:
+                    payment.payment_status = PaymentStatus.PAID
+                    payment.save(update_fields=["payment_status"])
             except Payment.DoesNotExist as e:
                 logger.warning(
                     f"Payment.DoesNotExist in WebhookView._handle_event: {e}"
