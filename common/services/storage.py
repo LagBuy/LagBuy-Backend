@@ -1,12 +1,12 @@
 import logging
-import warnings
 import uuid
+import warnings
 from io import BytesIO
-from PIL import Image
 
 import boto3
 from botocore.exceptions import ClientError
 from django.conf import settings
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class StorageService:
         try:
             image = Image.open(file_obj)
             buffer = BytesIO()
-            # Save as JPEG with quality=75 (adjust as needed)
+            # Save as JPEG with quality=75
             image.save(buffer, format="JPEG", quality=75, optimize=True)
             buffer.seek(0)
             content_type = content_type or "image/jpeg"

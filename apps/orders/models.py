@@ -29,9 +29,16 @@ class Order(models.Model):
     buyer = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, related_name="orders"
     )
-    payment_status = models.CharField(
-        max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
-    )
+
+    @property
+    def payment_status(self):
+        """
+        Returns PAID if any related payment has status 'paid', else UNPAID.
+        """
+        if self.payments.filter(payment_status="paid").exists():
+            return self.PaymentStatus.PAID
+        return self.PaymentStatus.UNPAID
+
     delivery_address = models.TextField()
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -72,7 +79,7 @@ class Order(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Order - {self.id} by {self.buyer}"
+        return f"Order - {self.id} by {self.buyer} [{self.payment_status}]"
 
 
 class OrderItem(models.Model):
