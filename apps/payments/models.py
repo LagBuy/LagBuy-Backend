@@ -39,8 +39,8 @@ class Payment(models.Model):
     user = models.ForeignKey(
         CustomUser, on_delete=models.SET_NULL, null=True, related_name="payments"
     )
-    order = models.OneToOneField(
-        Order, on_delete=models.SET_NULL, null=True, related_name="payment"
+    order = models.ForeignKey(
+        Order, on_delete=models.SET_NULL, null=True, related_name="payments"
     )
 
     class Meta:
