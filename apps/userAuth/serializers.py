@@ -24,7 +24,7 @@ class CustomRegisterSerializer(RegisterSerializer):
     phone_number = serializers.CharField(max_length=20, required=True)
     image = serializers.ImageField(required=False, allow_null=True)
     address = serializers.CharField(max_length=225, required=False, allow_null=True)
-    gender = serializers.CharField(max_length=20, required=True)
+    gender = serializers.CharField(max_length=20, required=False, allow_null=True)
     dob = serializers.DateField(required=False, allow_null=True)
     state = serializers.CharField(max_length=20, required=False, allow_null=True)
     city = serializers.CharField(max_length=20, required=False, allow_null=True)
@@ -38,7 +38,7 @@ class CustomRegisterSerializer(RegisterSerializer):
     # riders info
     phone_number2 = serializers.CharField(max_length=20, required=False)
     nin = serializers.CharField(max_length=20, required=False)
-    nok = serializers.CharField(max_length=225, required=False) # next of kin
+    next_of_kins = serializers.CharField(max_length=225, required=False) # next of kin
     nok_phonenumber = serializers.CharField(max_length=20, required=False)
     motorcycle_type = serializers.CharField(max_length=225, required=False)
     motorcycle_brand = serializers.CharField(max_length=225, required=False)

@@ -11,8 +11,8 @@ class UsersProfile(models.Model):
     first_name = models.CharField(max_length=225)
     last_name = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
-    gender = models.CharField(max_length=20)
-    dob = models.DateField()
+    gender = models.CharField(max_length=20, null=True)
+    dob = models.DateField(null=True)
     state = models.CharField(max_length=20, null=True)
     city = models.CharField(max_length=20, null=True)
     address = models.TextField(null=True)
@@ -36,7 +36,7 @@ class UsersProfile(models.Model):
 class VendorsProfile(models.Model):
     """Seller Profile"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
-    business_name = models.CharField(null=True, max_length=225, unique=True)
+    business_name = models.CharField(null=True, max_length=225)
     business_location_city = models.CharField(max_length=225, null=True)
     business_location_state = models.CharField(max_length=225, null=True)
 
