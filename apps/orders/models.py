@@ -30,15 +30,13 @@ class Order(models.Model):
         CustomUser, on_delete=models.CASCADE, related_name="orders"
     )
 
-    # payment_status field removed; now a property
     @property
     def payment_status(self):
         """
-        Returns the payment status for the order by checking the related Payment object.
+        Returns PAID if any related payment has status 'paid', else UNPAID.
         """
-        payment = getattr(self, "payment", None)
-        if payment:
-            return payment.payment_status
+        if self.payments.filter(payment_status="paid").exists():
+            return self.PaymentStatus.PAID
         return self.PaymentStatus.UNPAID
 
     delivery_address = models.TextField()

@@ -159,12 +159,12 @@ class OrderAPITest(TestCase):
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
-        payment = getattr(self.order, "payment", None)
+        payment = self.order.payments.first()
         self.assertIsNotNone(payment)
         payment.payment_status = "paid"
         payment.save(update_fields=["payment_status"])
-        self.assertEqual(payment.payment_status, "paid")
-        self.assertEqual(self.order.payment_status, "paid")
+        self.assertEqual(payment.payment_status, PaymentStatus.PAID)
+        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
 
     def test_update_order_status_non_admin(self):
         """Test non-admin cannot update order status."""
@@ -279,9 +279,10 @@ class OrderAPITest(TestCase):
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.order.refresh_from_db()
-        payment = getattr(self.order, "payment", None)
+        payment = self.order.payments.first()
         self.assertIsNotNone(payment)
         payment.payment_status = "paid"
         payment.save(update_fields=["payment_status"])
-        self.assertEqual(payment.payment_status, "paid")
-        self.assertEqual(self.order.payment_status, "paid")
+
+        self.assertEqual(payment.payment_status, PaymentStatus.PAID)
+        self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
