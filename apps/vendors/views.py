@@ -25,7 +25,6 @@ class TotalSale(APIView):
         """get total sales"""
 
         try:
-            # TODO: Test to ensure only a seller can access this.
             orderItems = OrderItem.objects.filter(
                 order__payments__payment_status="paid", product__seller=request.user
             ).distinct()
@@ -81,7 +80,7 @@ class NewCustomers(APIView):
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
-        days = request.query_params.get("days", 5)
+        days = request.query_params.get("days", 30)
         days = int(days)
         if days < 0:
             return error_response(
@@ -101,7 +100,7 @@ class NewCustomers(APIView):
                 .values("order__created_at")[:1]
             )
             new_customers = (
-                OrderItem.objects.filter(product__seller=seller)
+                OrderItem.objects.filter(product__seller=seller, order__payments__payment_status="paid")
                 .annotate(first_order_date=Subquery(first_orders))
                 .filter(first_order_date__gte=days_ago)
                 .values(
@@ -118,7 +117,7 @@ class NewCustomers(APIView):
             new_customers_count = new_customers.count()
 
             return success_response(
-                message="New customers in the past month",
+                message=f"New customers in the {days} days",
                 data={
                     "new_customers_count": new_customers_count,
                     "new_customers": new_customers,
