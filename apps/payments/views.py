@@ -101,40 +101,32 @@ class VerifyPaymentView(APIView):
             response = payment_service.verify_payment(reference)
             transaction = Payment.objects.get(ref=reference, user=request.user)
 
-            if response.get("status", False):
+            data = response.get("data", {})
+
+            # Only mark as PAID if the transaction status is 'success'
+            if response.get("status", False) and data.get("status") == "success":
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
 
-            data = response.get("data", {})
-            if response.get("status", False):
-                order = OrderSerializer(transaction.order).data
-                return Response(
-                    {
-                        "status": response.get("status", False),
-                        "detail": response.get("message"),
-                        "transaction": {
-                            "reference": data.get("reference"),
-                            "status": data.get("status"),
-                            "amount": data.get("amount"),
-                            "currency": data.get("currency"),
-                            "paid_at": data.get("paid_at"),
-                            "channel": data.get("channel"),
-                            "gateway_response": data.get("gateway_response"),
-                            "order": order,
-                        },
+            order = OrderSerializer(transaction.order).data
+            return Response(
+                {
+                    "status": response.get("status", False),
+                    "detail": response.get("message"),
+                    "transaction": {
+                        "reference": data.get("reference"),
+                        "status": data.get("status"),
+                        "amount": data.get("amount"),
+                        "currency": data.get("currency"),
+                        "paid_at": data.get("paid_at"),
+                        "channel": data.get("channel"),
+                        "gateway_response": data.get("gateway_response"),
+                        "order": order,
                     },
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {
-                        "status": response.get("status", False),
-                        "detail": response.get("message"),
-                        "order": transaction.order.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+                },
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             logger.error(f"Exception in VerifyPaymentView.get: {e}", exc_info=True)
             return Response(
