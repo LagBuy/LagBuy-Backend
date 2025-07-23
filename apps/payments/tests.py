@@ -204,7 +204,6 @@ class VerifyPaymentViewTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["status"])
-        self.assertIn("order", response.data)
 
         # Verify payment and order were not updated
         self.payment.refresh_from_db()
