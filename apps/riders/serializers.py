@@ -27,16 +27,21 @@ class RiderOrderItemSerializer(serializers.ModelSerializer):
 class AdminRiderOrderItemSerializer(serializers.ModelSerializer):
     """Serializer for OrderItem model."""
     delivery_address = serializers.SerializerMethodField()
+    pickup_address = serializers.SerializerMethodField()
     rider = serializers.SlugRelatedField(slug_field='email', queryset=CustomUser.objects.all())
     assigned_riders = serializers.PrimaryKeyRelatedField(many=True, queryset=CustomUser.objects.all())
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "quantity", "rider", "assigned_riders", "delivery_address", "ready_for_pickup", "picked_up", "delivery_status"]
+        fields = ["id", "product", "quantity", "rider", "assigned_riders", "delivery_address", "pickup_address", "ready_for_pickup", "picked_up", "delivery_status"]
         read_only_fields = fields.copy()
 
     def get_delivery_address(self, obj):
         address = obj.order.delivery_address
+        return address
+    
+    def get_pickup_address(self, obj):
+        address = obj.product.seller.vendor_profile.address
         return address
 
 
