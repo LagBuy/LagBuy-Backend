@@ -108,6 +108,16 @@ class OrderItem(models.Model):
     delivery_status = models.CharField(
         max_length=10, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING
     )
+    ready_for_pickup = models.BooleanField(default=False)
+    picked_up = models.BooleanField(default=False)
+    rider = models.ForeignKey(
+        CustomUser, related_name="items", null=True, on_delete=models.SET_NULL,
+        help_text="The rider that accept the Order will be registered here and be responsible for delivering it"
+        )
+    assigned_riders = models.ManyToManyField(
+        CustomUser,
+        help_text="Multiple riders can be assigned to an Order item to either accept or decline it"
+        )
 
     @property
     def total_price(self):

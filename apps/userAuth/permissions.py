@@ -63,4 +63,16 @@ class IsASeller(permissions.BasePermission):
             and 'vendor' in [i.name for i in request.user.roles.all()]
         )
 
-# TODO: update all permission to reflect the update
+
+class IsARider(permissions.BasePermission):
+    """
+    Allows access only to users with the 'seller' role.
+    Use this permission to restrict actions (like product creation) to sellers only.
+    """
+
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and 'rider' in [i.name for i in request.user.roles.all()]
+        )

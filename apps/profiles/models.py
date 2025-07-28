@@ -37,6 +37,7 @@ class VendorsProfile(models.Model):
     """Seller Profile"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
     business_name = models.CharField(null=True, max_length=225)
+    business_address = models.TextField(null=True)
     business_location_city = models.CharField(max_length=225, null=True)
     business_location_state = models.CharField(max_length=225, null=True)
 
@@ -52,6 +53,13 @@ class VendorsProfile(models.Model):
     def __str__(self):
         """object return string"""
         return f'Vendor: {self.business_name} [{self.user.email}]'
+    
+    @property
+    def address(self):
+        text = f"{self.business_address}\
+            {','+self.business_location_city if self.business_location_city else ''}\
+                {','+self.business_location_state if self.business_location_state else ''}"
+        return text.rstrip()
 
 
 class RidersProfile(models.Model):

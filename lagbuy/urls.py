@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/v1/cart/", include("apps.cart.urls"), name="cart"),
     path("api/v1/reviews/", include("apps.reviews.urls"), name="reviews"),
     path("api/v1/vendors/", include("apps.vendors.urls"), name="analytic"),
+    path("api/v1/riders/", include("apps.riders.urls"), name="riders"),
 
     # password reset
     path(
