@@ -53,7 +53,7 @@ class AcceptOrDeclineOrderRequest(APIView):
                     "Wrong query parameter: `accept`, should be set to true or false",
                     status.HTTP_400_BAD_REQUEST
                 )
-            orderItem = OrderItem.objects.get(id=order_id, rider=None)
+            orderItem = OrderItem.objects.get(id=item_id, rider=None)
             if accept:
                 if request.user not in orderItem.assigned_riders.all():
                     return error_response(
@@ -153,7 +153,7 @@ class AdminAssignOrder(APIView):
             data = request.data
             if not data:
                 return error_response("No data provided", status.HTTP_400_BAD_REQUEST)
-            orderItem = OrderItem.objects.get(id=order_id)
+            orderItem = OrderItem.objects.get(id=item_id)
             serializer = UpdateOrderItemAssignedRidersSerializer(orderItem, data=data)
             if serializer.is_valid():
                 serializer.save()
