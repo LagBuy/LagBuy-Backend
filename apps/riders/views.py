@@ -39,7 +39,7 @@ class AcceptOrDeclineOrderRequest(APIView):
     """View to allow a rider accept or decline an order"""
     permission_classes = [IsAuthenticated, IsARider]
 
-    def put(self, request, order_id, *args, **kwargs):
+    def put(self, request, item_id, *args, **kwargs):
         """update the rider assinged to an item"""
         try:
             accept = request.data.get("accept", None)
@@ -143,11 +143,11 @@ class AdminAssignOrder(APIView):
     """Assign an order item to a rider. Admin only"""
     permission_classes = [IsAuthenticated, IsAdminUser]
 
-    def get(self, request, order_id, *args, **kwargs):
+    def get(self, request, item_id, *args, **kwargs):
         """Admin view all individual orders. TODO"""
         pass
 
-    def put(self, request, order_id, *args, **kwargs):
+    def put(self, request, item_id, *args, **kwargs):
         """Assign an order to a rider"""
         try:
             data = request.data
