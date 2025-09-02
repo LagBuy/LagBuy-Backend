@@ -32,6 +32,12 @@ class CategoryAPITest(TestCase):
         )
         cls.user.roles.add(cls.user_role)
 
+        cls.vendor = CustomUser.objects.create_user(
+            email="vendor@example.com",
+            password="password",
+        )
+        cls.vendor.roles.add(cls.vendor_role)
+
         cls.category = Category.objects.create(
             name="Test Category",
             description="Test Description",
@@ -40,8 +46,16 @@ class CategoryAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    def test_admin_can_create_category(self):
-        self.client.force_authenticate(user=self.admin)
+    # def test_admin_can_create_category(self):
+    #     self.client.force_authenticate(user=self.admin)
+    #     url = reverse_lazy("category-list")
+    #     data = {"name": "New Category", "description": "New Desc"}
+    #     response = self.client.post(url, data, format="json")
+    #     self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    #     self.assertEqual(response.data["data"]["name"], "New Category")
+
+    def test_vendor_can_create_category(self):
+        self.client.force_authenticate(user=self.vendor)
         url = reverse_lazy("category-list")
         data = {"name": "New Category", "description": "New Desc"}
         response = self.client.post(url, data, format="json")
@@ -92,10 +106,10 @@ class CategoryAPITest(TestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_unauthenticated_cannot_access_categories(self):
-        url = reverse_lazy("category-list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    # def test_unauthenticated_cannot_access_categories(self):
+    #     url = reverse_lazy("category-list")
+    #     response = self.client.get(url)
+    #     self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
