@@ -61,7 +61,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "updated_at",
             "categories",
         ]
-        read_only_fields = ["id", "seller", "created_at", "updated_at"]
+        read_only_fields = ["id", "verified", "seller", "created_at", "updated_at"]
 
     def validate_stock_quantity(self, value):
         """

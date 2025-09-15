@@ -22,6 +22,7 @@ class Cart(models.Model):
         ordering = ["-updated_at"]
 
     def __str__(self):
+        #TODO: the username attribute is None, change to email or firstname.
         return f"{self.user.username}'s cart"
 
     @property
@@ -62,4 +63,5 @@ class CartItem(models.Model):
         """
         Returns the total price for this cart item (quantity * product price).
         """
+        # TODO: account for coupon in the cart
         return self.quantity * self.product.price

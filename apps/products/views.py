@@ -239,6 +239,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    # TODO: why update the stock differently? why is this different from the earlier update view
     @action(
         detail=True,
         methods=["post"],
@@ -287,6 +288,8 @@ class ImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # TODO: no try-except block. you are sure this won't raise any exception on err?
+        # you didn't log the server error.
         storage = StorageService()
         file_url = storage.upload_file(
             uploaded_image, uploaded_image.name, uploaded_image.content_type

@@ -8,6 +8,9 @@ from apps.coupons.models import Coupon
 from apps.products.models import Product
 from apps.userAuth.models import CustomUser
 
+# TODO: an order item should take a snapshot of the product price at the time it is being placed
+# TODO: only admins should update delivery status
+# TODO: implement is_deleted for some of the models (use a class that handles it all)
 
 class Order(models.Model):
     """
@@ -35,6 +38,7 @@ class Order(models.Model):
         """
         Returns PAID if any related payment has status 'paid', else UNPAID.
         """
+        # TODO: what happens if the payment price is not the full price for the products
         if self.payments.filter(payment_status="paid").exists():
             return self.PaymentStatus.PAID
         return self.PaymentStatus.UNPAID
@@ -104,6 +108,7 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    # TODO: a coupon being deleted should not affect the order item
     coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE, null=True, blank=True)
     delivery_status = models.CharField(
         max_length=10, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING

@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from .models import Order, OrderItem
 
+# TODO: change the order implementation.
+# Orders will be placed per vendor
 
 class OrderItemSerializer(serializers.ModelSerializer):
     """Serializer for OrderItem model."""
@@ -55,6 +57,7 @@ class OrderSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop("items")
         buyer = self.context["request"].user
         order = Order.objects.create(buyer=buyer, **validated_data)
+        # TODO: what happens if a product is added twice
         for item_data in items_data:
             product = item_data["product"]
             if product.stock_quantity < item_data["quantity"]:
