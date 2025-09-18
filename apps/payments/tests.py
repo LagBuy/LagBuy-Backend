@@ -11,6 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.orders.models import Order
 from apps.payments.models import Payment, PaymentStatus
 from apps.userAuth.models import CustomUser
+from apps.profiles.models import UsersProfile
 
 User = get_user_model()
 
@@ -24,6 +25,7 @@ class InitializeTransactionViewTestCase(APITestCase):
         self.user = CustomUser.objects.create_user(
             email="test@example.com", password="testpass123"
         )
+        UsersProfile.objects.create(user=self.user, first_name="Test", last_name="User")
         self.order = Order.objects.create(
             buyer=self.user, delivery_address="123 Test Street"
         )
@@ -66,7 +68,7 @@ class InitializeTransactionViewTestCase(APITestCase):
 
     def test_initialize_transaction_already_paid(self):
         """Test initialization for already paid order"""
-        Payment.objects.create(
+        payment = Payment.objects.create(
             user=self.user,
             order=self.order,
             amount=self.order.total_price,

@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.products.models import Product
 from apps.userAuth.models import CustomUser, Role
+from apps.profiles.models import UsersProfile
 
 from .models import Cart, CartItem
 
@@ -24,6 +25,9 @@ class CartAPITest(TestCase):
             password="password",
         )
         cls.user.roles.add(cls.user_role)
+        UsersProfile.objects.create(
+            user=cls.user, first_name="Test", last_name="User"
+        )
 
         cls.other_user = CustomUser.objects.create_user(
             email="otheruser@example.com",
@@ -53,6 +57,10 @@ class CartAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
+    
+    def test_get_cart_str(self):
+        """Test the string representation of the Cart model."""
+        self.assertEqual(str(self.cart), f"{self.user.user_profile.first_name}'s cart")
 
     def test_get_cart(self):
         """Test retrieving the authenticated user's cart."""

@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from apps.userAuth.permissions import IsASeller, IsOwnerSeller
 from common.services.storage import StorageService
-from common.utils.responses import error_response, success_response
+from common.utils.responses import error_response, success_response, customize_response
 
 from .filter import ProductFilter
 from .models import Category, Product
@@ -141,6 +141,13 @@ class ProductViewSet(viewsets.ModelViewSet):
             self.action, self.permission_classes
         )
         return super().get_permissions()
+    
+    def get_queryset(self):
+        """enable filtering by seller via query param"""
+        seller_id = self.request.query_params.get('vendor_id')
+        if seller_id:
+            return self.queryset.filter(seller_id=seller_id)
+        return self.queryset
 
     def list(self, request, *args, **kwargs):
         try:
@@ -158,6 +165,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         try:
             instance = self.get_object()
             serializer = self.get_serializer(instance)
+            if request.user.is_authenticated:
+                request.user.user_profile.viewed_products.add(instance)
             return success_response(serializer.data, "Product retrieved successfully.")
         except Exception as e:
             logger.error(f"Error retrieving product: {e}")
@@ -241,7 +250,6 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # TODO: why update the stock differently? why is this different from the earlier update view
     @action(
         detail=True,
         methods=["post"],
@@ -290,8 +298,6 @@ class ImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # TODO: no try-except block. you are sure this won't raise any exception on err?
-        # you didn't log the server error.
         storage = StorageService()
         file_url = storage.upload_file(
             uploaded_image, uploaded_image.name, uploaded_image.content_type
@@ -302,3 +308,19 @@ class ImageUploadView(APIView):
             {"detail": "Failed to upload image."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+class ViewedProductsViewSet(viewsets.ReadOnlyModelViewSet):
+    """A viewset to view user's recently viewed products"""
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def get_queryset(self):
+        user = self.request.user
+        return user.user_profile.viewed_products.all() #.select_related('seller', 'categories')
+
+    def list(self, request, *args, **kwargs):
+        """Get list of user's recently viewed products"""
+        response = super().list(request, *args, **kwargs)
+        return customize_response(response, "Recently viewed products retrieved successfully")

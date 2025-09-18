@@ -30,7 +30,6 @@ class Review(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # TODO: different implementation of constraints here than in cart. please explain
         constraints = [
             models.UniqueConstraint(
                 fields=["product", "buyer"], name="unique_review_per_product_per_user"
@@ -38,5 +37,4 @@ class Review(models.Model):
         ]
 
     def __str__(self):
-        # TODO: username doesn't exist
-        return f"Review of {self.product.name} by {self.buyer.username} - Rating: {self.rating}"
+        return f"Review of {self.product.name} by {self.buyer.user_profile.first_name} - Rating: {self.rating}"

@@ -1,6 +1,19 @@
 from django.urls import path
+from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from .views import CartItemViewSet, CartViewSet
+
+CartViewSet = extend_schema_view(
+    list=extend_schema(tags=["Cart"], summary="Retrieve the current user's cart"),
+    destroy=extend_schema(tags=["Cart"], summary="Clear the current user's cart"),
+    add_item=extend_schema(tags=["Cart"], summary="Add an item to the cart"),
+    remove_item=extend_schema(tags=["Cart"], summary="Remove an item from the cart"),
+)(CartViewSet)
+
+CartItemViewSet = extend_schema_view(
+    list=extend_schema(tags=["Cart"], summary="List all items in the current user's cart"),
+    retrieve=extend_schema(tags=["Cart"], summary="Retrieve a cart item by ID"),
+)(CartItemViewSet)
 
 # Cart views
 cart_list = CartViewSet.as_view({"get": "list", "delete": "destroy"})

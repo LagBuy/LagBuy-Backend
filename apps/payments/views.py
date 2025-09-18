@@ -43,7 +43,8 @@ class InitializeTransactionView(APIView):
             return Response(
                 {"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND
             )
-        payment = getattr(order, "payment", None)
+        payment = getattr(order, "payments", None)
+        payment = payment.first() if payment else None
         if payment and payment.payment_status == PaymentStatus.PAID:
             return Response(
                 {"detail": "Order has already been paid for."},

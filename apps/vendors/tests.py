@@ -117,6 +117,17 @@ class VendorDashboardTest(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.seller)
     
+    def test_vendor_product_list(self):
+        """Test the vendor product list view"""
+        url = reverse_lazy("vendor-products")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+        self.assertEqual(len(data), 2)
+        product_names = [product["name"] for product in data]
+        self.assertIn("Test Product", product_names)
+        self.assertIn("Another Product", product_names)
+    
     def test_total_sale(self):
         """Test vendor total sale view. Ensures the unpaid order is not added
            Ensure it only includes products owned by the logged in user

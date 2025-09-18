@@ -45,6 +45,7 @@ class ProductSerializer(serializers.ModelSerializer):
         queryset=ProductImage.objects.all(),
         required=False,
     )
+    shop_location = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -57,6 +58,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "images",
             "verified",
             "stock_quantity",
+            "shop_location",
             "created_at",
             "updated_at",
             "categories",
@@ -70,6 +72,10 @@ class ProductSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative.")
         return value
+
+    def get_shop_location(self, obj):
+        """get vendor shop location"""
+        return obj.seller.vendor_profile.short_address if hasattr(obj.seller, 'vendor_profile') else None
 
 
 class MinimalProductSerializer(serializers.ModelSerializer):

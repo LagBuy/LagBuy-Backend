@@ -11,9 +11,36 @@ from rest_framework.views import APIView
 
 from apps.orders.models import OrderItem
 from apps.userAuth.permissions import IsASeller
+from apps.products.serializers import ProductSerializer
 from common.utils.responses import error_response, success_response
 
 logger = logging.getLogger(__name__)
+
+
+class VendorProductView(APIView):
+    """View to list all products of a vendor"""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        """List all products of the vendor"""
+        try:
+            seller = request.user
+            products = seller.products.all()
+            serializer = ProductSerializer(products, many=True)
+            return success_response(
+                data=serializer.data, message="Products of the vendor"
+            )
+        except PermissionDenied as e:
+            return error_response(
+                message=e.detail, status_code=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Error while getting products of the vendor: {e}")
+            return error_response(
+                message="An error occurred while getting products of the vendor",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class TotalSale(APIView):

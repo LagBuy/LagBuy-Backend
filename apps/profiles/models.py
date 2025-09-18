@@ -3,6 +3,7 @@ from django.utils import timezone
 import uuid
 
 from apps.userAuth.models import CustomUser
+from apps.products.models import Product
 
 
 class UsersProfile(models.Model):
@@ -23,6 +24,9 @@ class UsersProfile(models.Model):
 
     # Relationships
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='user_profile')
+    viewed_products = models.ManyToManyField(Product, related_name='viewers', blank=True) # viewed products by the user. only store recently viewed products
+    favorite_vendors = models.ManyToManyField(CustomUser, related_name='fans', blank=True) # favorite vendors by the user
+
 
     class Meta:
         verbose_name = "User Profile"
@@ -56,10 +60,22 @@ class VendorsProfile(models.Model):
     
     @property
     def address(self):
-        text = f"{self.business_address}\
-            {','+self.business_location_city if self.business_location_city else ''}\
-                {','+self.business_location_state if self.business_location_state else ''}"
-        return text.rstrip()
+        """get the full vendor address"""
+        text = (
+            f"{self.business_address if self.business_address else ''}, "
+            f"{self.business_location_city if self.business_location_city else ''}, "
+            f"{self.business_location_state if self.business_location_state else ''}"
+        )
+        return text.rstrip().rstrip(',').rstrip().rstrip(',')
+
+    @property
+    def short_address(self):
+        """get the vendor city and state"""
+        text = (
+            f"{self.business_location_city if self.business_location_city else ''}, "
+            f"{self.business_location_state if self.business_location_state else ''}"
+        )
+        return text.rstrip().rstrip(',')
 
 
 class RidersProfile(models.Model):
