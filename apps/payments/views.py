@@ -109,6 +109,10 @@ class VerifyPaymentView(APIView):
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
+                # remove items with the order products from user's cart
+                user = request.user
+                order = transaction.order
+                user.cart.items.filter(product__in=order.items.values_list('product', flat=True)).delete()
 
             order = OrderSerializer(transaction.order).data
             return Response(
@@ -197,6 +201,10 @@ class WebhookView(APIView):
                 if payment.payment_status != PaymentStatus.PAID:
                     payment.payment_status = PaymentStatus.PAID
                     payment.save(update_fields=["payment_status"])
+                    # remove items with the order products from user's cart
+                    user = payment.user
+                    order = payment.order
+                    user.cart.items.filter(product__in=order.items.values_list('product', flat=True)).delete()
             except Payment.DoesNotExist as e:
                 logger.warning(
                     f"Payment.DoesNotExist in WebhookView._handle_event: {e}"

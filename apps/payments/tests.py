@@ -8,10 +8,12 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from apps.orders.models import Order
+from apps.orders.models import Order, OrderItem
 from apps.payments.models import Payment, PaymentStatus
 from apps.userAuth.models import CustomUser
 from apps.profiles.models import UsersProfile
+from apps.products.models import Product
+from apps.cart.models import Cart, CartItem
 
 User = get_user_model()
 
@@ -150,6 +152,22 @@ class VerifyPaymentViewTestCase(APITestCase):
             currency="NGN",
             payment_status=PaymentStatus.PENDING,
         )
+        self.product = Product.objects.create(
+            name="Test Product",
+            price=100.0,
+            description="Test Description",
+            stock_quantity=10,
+            seller=self.user,
+        )
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=2
+        )
+        self.cart = Cart.objects.create(user=self.user)
+        self.cart_item = CartItem.objects.create(
+            cart=self.cart, product=self.product, quantity=2
+        )
 
     def test_verify_payment_unauthenticated(self):
         """Test that unauthenticated users cannot verify payments"""
@@ -189,6 +207,9 @@ class VerifyPaymentViewTestCase(APITestCase):
         self.order.refresh_from_db()
         self.assertTrue(self.payment.verified)
         self.assertEqual(self.order.payment_status, Order.PaymentStatus.PAID)
+        # test the item was removed from cart
+        self.cart.refresh_from_db()
+        self.assertEqual(self.cart.items.count(), 0)
 
     @patch("apps.payments.views.payment_service.verify_payment")
     def test_verify_payment_failed(self, mock_verify):
