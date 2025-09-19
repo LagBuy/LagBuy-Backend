@@ -16,10 +16,21 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ["id", "product", "quantity", "coupon", "total_price"]
 
 
+def group_item_by_vendor(items):
+    """group the items by vendor"""
+    grouped_items = {}
+    for item in items:
+        vendor = str(item.product.seller.id)
+        if vendor not in grouped_items:
+            grouped_items[vendor] = []
+        grouped_items[vendor].append(OrderItemSerializer(item).data)
+    return grouped_items
+
+
 class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model."""
 
-    items = OrderItemSerializer(many=True, required=False)
+    # items = OrderItemSerializer(many=True, required=False)
     vendor = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=CustomUser.objects.filter(roles__name="vendor")
@@ -31,7 +42,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "id",
             "buyer",
             "vendor",
-            "items",
+            # "items",
             "payment_status",
             "delivery_address",
             "delivery_status",
@@ -42,7 +53,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "delivery_fee",
         ]
         read_only_fields = [
-            "items",
+            # "items",
             "created_at",
             "updated_at",
             "total_price",
@@ -109,6 +120,13 @@ class OrderSerializer(serializers.ModelSerializer):
             instance.delivery_address = delivery_address
             instance.save(update_fields=["delivery_address", "updated_at"])
         return instance
+    
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Group items by seller
+        grouped_items = group_item_by_vendor(instance.items.select_related("product__seller").all())
+        ret["items"] = grouped_items
+        return ret
 
 
 class OrderItemStatusUpdateSerializer(serializers.ModelSerializer):

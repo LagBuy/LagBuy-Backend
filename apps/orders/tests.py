@@ -87,9 +87,10 @@ class OrderAPITest(TestCase):
         order_data = response.data["data"]
         self.assertEqual(order_data["buyer"], self.buyer.id)
         self.assertEqual(order_data["delivery_address"], "456 New St")
-        self.assertEqual(len(order_data["items"]), 2)
-        self.assertIn(order_data["items"][0]["product"], [self.product.id, self.product2.id])
-        self.assertEqual(order_data["items"][0]["quantity"], 2)
+        self.assertEqual(len(order_data["items"]), 1) # a single vendor
+        self.assertEqual(len(order_data["items"][str(self.seller.id)]), 2) # two items from that vendor
+        self.assertIn(order_data["items"][str(self.seller.id)][0]["product"], [self.product.id, self.product2.id])
+        self.assertEqual(order_data["items"][str(self.seller.id)][0]["quantity"], 2)
         self.assertIn(order_data["delivery_status"], ["pending", "completed"])
     
     def test_purchase_price_recorded(self):
@@ -106,10 +107,11 @@ class OrderAPITest(TestCase):
         order_response = self.client.get(order_detail_url)
         self.assertEqual(order_response.status_code, status.HTTP_200_OK)
         items = order_response.data["data"]["items"]
-        self.assertEqual(len(items), 2)
-        self.assertIn(items[0]["product"], [self.product.id, self.product2.id])
-        self.assertEqual(items[0]["quantity"], 2)
-        self.assertIn(float(items[0]["total_price"]), [float(self.product.price) * 2, float(self.product2.price) * 2])
+        self.assertEqual(len(items), 1) # a single vendor
+        self.assertEqual(len(items[str(self.seller.id)]), 2) # two items from that vendor
+        self.assertIn(items[str(self.seller.id)][0]["product"], [self.product.id, self.product2.id])
+        self.assertEqual(items[str(self.seller.id)][0]["quantity"], 2)
+        self.assertIn(float(items[str(self.seller.id)][0]["total_price"]), [float(self.product.price) * 2, float(self.product2.price) * 2])
 
     def test_create_order_insufficient_stock(self):
         """Test creating an order with quantity greater than stock fails."""
