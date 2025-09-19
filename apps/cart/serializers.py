@@ -40,13 +40,24 @@ class CartItemSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
 
+def group_item_by_vendor(items):
+    """group the items by vendor"""
+    grouped_items = {}
+    for item in items:
+        vendor = str(item.product.seller.id)
+        if vendor not in grouped_items:
+            grouped_items[vendor] = []
+        grouped_items[vendor].append(CartItemSerializer(item).data)
+    return grouped_items
+
+
 class CartSerializer(serializers.ModelSerializer):
     """
     Serializer for Cart model.
     Includes nested cart items and computed total price.
     """
 
-    items = CartItemSerializer(many=True, read_only=True)
+    # items = CartItemSerializer(many=True, read_only=True)
     total_price = serializers.ReadOnlyField()
 
     class Meta:
@@ -54,9 +65,16 @@ class CartSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "items",
+            # "items",
             "total_price",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["total_price", "created_at", "updated_at"]
+    
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Group items by vendor
+        grouped_items = group_item_by_vendor(instance.items.select_related("product__seller").all())
+        ret["items"] = grouped_items
+        return ret

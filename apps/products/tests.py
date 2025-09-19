@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
 from apps.userAuth.models import CustomUser, Role
+from apps.profiles.models import VendorsProfile, UsersProfile
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -127,6 +128,14 @@ class ProductAPITest(TestCase):
             email="seller@example.com",
             password="password",
         )
+        VendorsProfile.objects.create(
+            user=cls.seller,
+            business_name="Seller Business",
+            business_address="123 Seller St",
+            business_location_city="Seller City",
+            business_location_state="Seller State",
+            is_verified=True,
+        )
         cls.seller.roles.add(cls.user_role)
         cls.seller.roles.add(cls.vendor_role)
 
@@ -135,6 +144,12 @@ class ProductAPITest(TestCase):
             password="password",
         )
         cls.buyer.roles.add(cls.user_role)
+        UsersProfile.objects.create(
+            user=cls.buyer,
+            first_name="Buyer",
+            last_name="User",
+            phone_number="1234567890"
+        )
 
         cls.category = Category.objects.create(
             name="Test Category",
@@ -188,6 +203,67 @@ class ProductAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue("data" in response.data)
         self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_filter_product_by_location(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list") + "?city=Seller City&state=Seller State"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_filter_product_by_vendor(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list") + "?vendor=Seller Business"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_filter_product_by_price_range(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list") + "?min_price=50&max_price=150"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_filter_product_no_match(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list") + "?city=Nonexistent City"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 0)
+    
+    def test_filter_product_by_category(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list") + "?categories=Test Category"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_get_product_owned_by_seller(self):
+        self.client.force_authenticate(user=self.seller)
+        url = reverse_lazy("product-list") + f"?vendor_id={self.seller.id}"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")
+    
+    def test_return_seller_short_address_in_product_list(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(response.data["data"][0]["shop_location"], "Seller City, Seller State")
 
     def test_get_product_detail(self):
         self.client.force_authenticate(user=self.buyer)
@@ -195,6 +271,7 @@ class ProductAPITest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["name"], "Test Product")
+        self.assertEqual(response.data["data"]["stock_quantity"], 10)
 
     def test_seller_can_update_product(self):
         self.client.force_authenticate(user=self.seller)
@@ -248,3 +325,24 @@ class ProductAPITest(TestCase):
         data = {"stock_quantity": -5}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_product_added_to_user_viewed_products(self):
+        self.client.force_authenticate(user=self.buyer)
+        url = reverse_lazy("product-detail", args=[self.product.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.buyer.refresh_from_db()
+        self.assertIn(self.product, self.buyer.user_profile.viewed_products.all())
+    
+    def test_get_viewed_products(self):
+        self.client.force_authenticate(user=self.buyer)
+        # Simulate viewing the product
+        url = reverse_lazy("product-detail", args=[self.product.id])
+        self.client.get(url)
+        # Test the viewed products endpoint
+        url = reverse_lazy("viewed-products-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue("data" in response.data)
+        self.assertEqual(len(response.data["data"]), 1)
+        self.assertEqual(response.data["data"][0]["name"], "Test Product")

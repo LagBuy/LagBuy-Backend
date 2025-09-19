@@ -26,6 +26,7 @@ class VendorProfileSerializer(serializers.ModelSerializer):
         model = VendorsProfile
         fields = (
             'business_name',
+            'business_address',
             'business_location_city',
             'business_location_state',
             'is_verified'

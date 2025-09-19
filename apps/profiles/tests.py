@@ -14,7 +14,7 @@ from .models import VendorsProfile, UsersProfile, RidersProfile
 class ProfileModelsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = get_user_model().objects.create_user(
+        cls.user = CustomUser.objects.create_user(
             email='testuser@gmail.com',
             password='user1234',
         )
@@ -91,9 +91,19 @@ class ProfileAPITest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = get_user_model().objects.create_user(
+        cls.user = CustomUser.objects.create_user(
             email='testuser@gmail.com',
             password='user1234',
+        )
+        cls.vendor = CustomUser.objects.create_user(
+            email='testvendor@gmail.com',
+            password='vendor1234',
+        )
+        cls.vendorProfile2 = VendorsProfile.objects.create(
+            user=cls.vendor,
+            business_name='Vendor business',
+            business_location_city='Vendor city',
+            business_location_state='Vendor state',
         )
         cls.userProfile = UsersProfile.objects.create(
             user=cls.user,
@@ -123,6 +133,9 @@ class ProfileAPITest(TestCase):
         cls.user.roles.add(cls.user_role)
         cls.user.roles.add(cls.vendor_role)
         cls.user.roles.add(cls.rider_role)
+        cls.vendor.roles.add(cls.user_role)
+        cls.vendor.roles.add(cls.vendor_role)
+        cls.userProfile.favorite_vendors.add(cls.user)  # User can favorite themselves for testing
 
     def setUp(self):
         self.client = APIClient()
@@ -268,4 +281,105 @@ class ProfileAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.user.vendor_profile.is_verified, False)
     
+    def test_get_all_vendor_profiles(self):
+        """Test viewing all vendor profiles"""
+        url = reverse_lazy('vendor-profile-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data['data'], list)
+        self.assertEqual(len(response.data['data']), 2)
+        vendor_profile = response.data['data'][0]
+        self.assertIn(vendor_profile['business_name'], ['Test business', 'Vendor business'])
+        self.assertIn(vendor_profile['business_location_city'], ['Test city', 'Vendor city'])
+        self.assertIn(vendor_profile['business_location_state'], ['Test state', 'Vendor state'])
+        self.assertIn('is_verified', vendor_profile)
+        self.assertEqual(vendor_profile['is_verified'], False)
+    
+    def test_get_single_vendor_profile(self):
+        """Test viewing a single vendor profile"""
+        url = reverse_lazy('vendor-profile-detail', args=[self.user.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vendor_profile = response.data['data']
+        self.assertEqual(vendor_profile['business_name'], 'Test business')
+        self.assertEqual(vendor_profile['business_location_city'], 'Test city')
+        self.assertEqual(vendor_profile['business_location_state'], 'Test state')
+        self.assertIn('is_verified', vendor_profile)
+        self.assertEqual(vendor_profile['is_verified'], False)
+    
+    def test_get_favorite_vendors(self):
+        """Test viewing user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data['data'], list)
+        self.assertGreaterEqual(len(response.data['data']), 1)
+        vendor = response.data['data'][0]
+        self.assertEqual(vendor['business_name'], 'Test business')
+        self.assertEqual(vendor['business_location_city'], 'Test city')
+        self.assertEqual(vendor['business_location_state'], 'Test state')
+        self.assertIn('is_verified', vendor)
+        self.assertEqual(vendor['is_verified'], False)
+    
+    def test_add_favorite_vendor(self):
+        """Test adding a vendor to user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-list')
+        data = {
+            'vendor_id': str(self.vendor.id)
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor added to favorites successfully")
+        self.assertIn(self.vendor, self.user.user_profile.favorite_vendors.all())
+    
+    def test_add_already_existing_favorite_vendor(self):
+        """Test adding a vendor that is already in user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-list')
+        data = {
+            'vendor_id': str(self.user.id)
+        }
+        self.user.refresh_from_db()
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor added to favorites successfully")
+        self.assertIn(self.user, self.user.user_profile.favorite_vendors.all())
+        self.assertEqual(self.user.user_profile.favorite_vendors.filter(id=self.user.id).count(), 1)
+    
+    def test_add_nonexistent_favorite_vendor(self):
+        """Test adding a vendor that does not exist to user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-list')
+        data = {
+            'vendor_id': '123e4567-e89b-12d3-a456-426614174000'
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor not found")
 
+    def test_remove_favorite_vendor(self):
+        """Test removing a vendor from user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-detail', args=[str(self.user.id)])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor removed from favorites successfully")
+        self.assertNotIn(self.user, self.user.user_profile.favorite_vendors.all())
+    
+    def test_remove_nonexistent_favorite_vendor(self):
+        """Test removing a vendor that does not exist from user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-detail', args=['123e4567-e89b-12d3-a456-426614174000'])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor not found")
+    
+    def test_remove_existing_vendor_not_in_favorites(self):
+        """Test removing a vendor that is not in user's favorite vendors"""
+        url = reverse_lazy('favourite-vendor-detail', args=[str(self.vendor.id)])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIn('message', response.data)
+        self.assertEqual(response.data['message'], "Vendor removed from favorites successfully")
+        self.assertNotIn(self.vendor, self.user.user_profile.favorite_vendors.all())

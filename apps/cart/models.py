@@ -22,7 +22,7 @@ class Cart(models.Model):
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"{self.user.username}'s cart"
+        return f"{self.user.user_profile.first_name}'s cart"
 
     @property
     def total_price(self):
@@ -62,4 +62,5 @@ class CartItem(models.Model):
         """
         Returns the total price for this cart item (quantity * product price).
         """
+        # TODO: account for coupon in the cart
         return self.quantity * self.product.price

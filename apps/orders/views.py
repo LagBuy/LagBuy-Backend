@@ -11,7 +11,7 @@ from apps.userAuth.permissions import IsASeller
 from .models import Order, OrderItem
 from .serializers import (
     OrderSerializer,
-    OrderStatusUpdateSerializer,
+    OrderItemStatusUpdateSerializer,
     SellerOrderItemSerializer,
 )
 
@@ -150,7 +150,7 @@ class OrderDetailView(APIView):
             )
 
 
-class OrderStatusUpdateView(APIView):
+class OrderItemStatusUpdateView(APIView):
     """
     API view for updating the status of an order.
     Only admins can update order status.
@@ -159,30 +159,30 @@ class OrderStatusUpdateView(APIView):
     permission_classes = [IsAdminUser]
     http_method_names = ["put"]
 
-    def put(self, request, order_id, *args, **kwargs):
-        """Update the status of an order."""
+    def put(self, request, orderitem_id, *args, **kwargs):
+        """Update the status of an order item."""
         try:
-            order = Order.objects.get(id=order_id)
-            serializer = OrderStatusUpdateSerializer(
-                order, data=request.data, partial=True
+            order_item = OrderItem.objects.get(id=orderitem_id)
+            serializer = OrderItemStatusUpdateSerializer(
+                order_item, data=request.data, partial=True
             )
             if serializer.is_valid():
                 serializer.save()
                 return success_response(
-                    message="Order status updated successfully.", data=serializer.data
+                    message="Order Item status updated successfully.", data=serializer.data
                 )
             return error_response(
                 message=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        except Order.DoesNotExist:
+        except OrderItem.DoesNotExist:
             return error_response(
-                message="Order not found.", status_code=status.HTTP_404_NOT_FOUND
+                message="Order Item not found.", status_code=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            logger.error(f"Error updating order status: {e}")
+            logger.error(f"Error updating order item status: {e}")
             return error_response(
-                message="An error occurred while updating the order status.",
+                message="An error occurred while updating the order item status.",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

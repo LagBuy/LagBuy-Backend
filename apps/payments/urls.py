@@ -1,10 +1,21 @@
 from django.urls import path
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .views import (
     InitializeTransactionView,
     VerifyPaymentView,
     WebhookView,
 )
+
+InitializeTransactionView = extend_schema_view(
+    post=extend_schema(tags=["Payments"], summary="Initialize a payment transaction")
+)(InitializeTransactionView)
+VerifyPaymentView = extend_schema_view(
+    get=extend_schema(tags=["Payments"], summary="Verify a payment transaction")
+)(VerifyPaymentView)
+WebhookView = extend_schema_view(
+    post=extend_schema(tags=["Payments"], summary="Handle payment gateway webhooks")
+)(WebhookView)
 
 urlpatterns = [
     path(

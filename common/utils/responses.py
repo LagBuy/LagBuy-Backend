@@ -15,3 +15,13 @@ def success_response(data, message, status_code=status.HTTP_200_OK):
         "message": message,
         "data": data
     }, status=status_code)
+
+def customize_response(response: Response, message: str = "") -> Response:
+    """Helper function to customize DRF Response objects."""
+    customized_data = {
+        "status": response.status_code,
+        "message": message if message else response.status_text,
+        "data": response.data
+    }
+    response.data = customized_data
+    return response

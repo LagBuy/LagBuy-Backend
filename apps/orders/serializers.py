@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.userAuth.models import CustomUser
 from .models import Order, OrderItem
 
 
@@ -15,30 +16,49 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ["id", "product", "quantity", "coupon", "total_price"]
 
 
+def group_item_by_vendor(items):
+    """group the items by vendor"""
+    grouped_items = {}
+    for item in items:
+        vendor = str(item.product.seller.id)
+        if vendor not in grouped_items:
+            grouped_items[vendor] = []
+        grouped_items[vendor].append(OrderItemSerializer(item).data)
+    return grouped_items
+
+
 class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model."""
 
-    items = OrderItemSerializer(many=True, required=False)
+    # items = OrderItemSerializer(many=True, required=False)
+    vendor = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=CustomUser.objects.filter(roles__name="vendor")
+        )
 
     class Meta:
         model = Order
         fields = [
             "id",
             "buyer",
-            "items",
+            "vendor",
+            # "items",
             "payment_status",
             "delivery_address",
             "delivery_status",
+            "service_charge",
             "created_at",
             "updated_at",
             "total_price",
             "delivery_fee",
         ]
         read_only_fields = [
+            # "items",
             "created_at",
             "updated_at",
             "total_price",
             "delivery_fee",
+            "service_charge",
             "delivery_status",
             "payment_status",
             "buyer",
@@ -46,24 +66,41 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate the order data."""
-        if self.instance is None and not data.get("items"):
-            raise serializers.ValidationError("Order must contain at least one item.")
+        if self.instance is None:
+            """Ensure user has at least one of the vendor's product in his cart"""
+            buyer = self.context["request"].user
+            vendor = data.get("vendor")
+            if not buyer.cart.items.filter(product__seller=vendor).exists():
+                raise serializers.ValidationError(
+                    "Your cart does not contain any products from this vendor."
+                )
         return data
 
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop("items")
+        """get items from user's cart and create order and order items."""
         buyer = self.context["request"].user
+        vendor = validated_data.pop("vendor")
+        cart = buyer.cart
+
         order = Order.objects.create(buyer=buyer, **validated_data)
-        for item_data in items_data:
-            product = item_data["product"]
-            if product.stock_quantity < item_data["quantity"]:
+        for cart_item in cart.items.filter(product__seller=vendor):
+            product = cart_item.product
+            if product.stock_quantity < cart_item.quantity:
                 raise serializers.ValidationError(
                     f"Insufficient stock for product {product.name}"
                 )
-            product.stock_quantity -= item_data["quantity"]
+            product.stock_quantity -= cart_item.quantity
             product.save()
-            OrderItem.objects.create(order=order, **item_data)
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity=cart_item.quantity,
+                coupon=getattr(cart_item, 'coupon', None),
+            )
+        # TODO: Clear only the items from this vendor
+        # cart.items.filter(product__seller=vendor).delete()
+        # clear when the order has been paid for (payment successful)
         return order
 
     @transaction.atomic
@@ -83,14 +120,21 @@ class OrderSerializer(serializers.ModelSerializer):
             instance.delivery_address = delivery_address
             instance.save(update_fields=["delivery_address", "updated_at"])
         return instance
+    
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Group items by seller
+        grouped_items = group_item_by_vendor(instance.items.select_related("product__seller").all())
+        ret["items"] = grouped_items
+        return ret
 
 
-class OrderStatusUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating order status."""
+class OrderItemStatusUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating order item status."""
 
     class Meta:
-        model = Order
-        fields = ["delivery_status", "payment_status"]
+        model = OrderItem
+        fields = ["delivery_status"]
 
 
 class SellerOrderItemSerializer(serializers.ModelSerializer):

@@ -37,4 +37,4 @@ class Review(models.Model):
         ]
 
     def __str__(self):
-        return f"Review of {self.product.name} by {self.buyer.username} - Rating: {self.rating}"
+        return f"Review of {self.product.name} by {self.buyer.user_profile.first_name} - Rating: {self.rating}"
