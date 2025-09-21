@@ -113,3 +113,6 @@ class PaymentService:
         """Raise an exception if the response indicates an error."""
         if not response.get("status"):
             raise Exception(response.get("message"))
+
+
+payment_service = PaymentService()

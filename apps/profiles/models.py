@@ -1,14 +1,18 @@
-from django.db import models
-from django.utils import timezone
 import uuid
 
-from apps.userAuth.models import CustomUser
+from django.db import models
+from django.utils import timezone
+
 from apps.products.models import Product
+from apps.userAuth.models import CustomUser
 
 
 class UsersProfile(models.Model):
     """Buyers Profile"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
+
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, null=False
+    )
     first_name = models.CharField(max_length=225)
     last_name = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
@@ -20,13 +24,18 @@ class UsersProfile(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-    image = models.ImageField(upload_to='profile_image/', null=True, blank=True)
+    image = models.ImageField(upload_to="profile_image/", null=True, blank=True)
 
     # Relationships
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='user_profile')
-    viewed_products = models.ManyToManyField(Product, related_name='viewers', blank=True) # viewed products by the user. only store recently viewed products
-    favorite_vendors = models.ManyToManyField(CustomUser, related_name='fans', blank=True) # favorite vendors by the user
-
+    user = models.OneToOneField(
+        CustomUser, on_delete=models.CASCADE, related_name="user_profile"
+    )
+    viewed_products = models.ManyToManyField(
+        Product, related_name="viewers", blank=True
+    )  # viewed products by the user. only store recently viewed products
+    favorite_vendors = models.ManyToManyField(
+        CustomUser, related_name="fans", blank=True
+    )  # favorite vendors by the user
 
     class Meta:
         verbose_name = "User Profile"
@@ -34,21 +43,32 @@ class UsersProfile(models.Model):
 
     def __str__(self):
         """object return string"""
-        return f'User Profile: {self.first_name} {self.last_name} [{self.user.email}]'
+        return f"User Profile: {self.first_name} {self.last_name} [{self.user.email}]"
 
 
 class VendorsProfile(models.Model):
     """Seller Profile"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
+
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, null=False
+    )
     business_name = models.CharField(null=True, max_length=225)
     business_address = models.TextField(null=True)
     business_location_city = models.CharField(max_length=225, null=True)
     business_location_state = models.CharField(max_length=225, null=True)
 
     is_verified = models.BooleanField(default=False)
+    # Paystack transfer recipient code. Populate when creating transfer recipients.
+    transfer_recipient = models.CharField(max_length=255, null=True, blank=True)
+
+    # Bank code and account number for vendor payouts
+    bank_code = models.CharField(max_length=20, null=True, blank=True)
+    account_number = models.CharField(max_length=20, null=True, blank=True)
 
     # Relationships
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='vendor_profile')
+    user = models.OneToOneField(
+        CustomUser, on_delete=models.CASCADE, related_name="vendor_profile"
+    )
 
     class Meta:
         verbose_name = "Vendor Profile"
@@ -56,8 +76,8 @@ class VendorsProfile(models.Model):
 
     def __str__(self):
         """object return string"""
-        return f'Vendor: {self.business_name} [{self.user.email}]'
-    
+        return f"Vendor: {self.business_name} [{self.user.email}]"
+
     @property
     def address(self):
         """get the full vendor address"""
@@ -66,7 +86,7 @@ class VendorsProfile(models.Model):
             f"{self.business_location_city if self.business_location_city else ''}, "
             f"{self.business_location_state if self.business_location_state else ''}"
         )
-        return text.rstrip().rstrip(',').rstrip().rstrip(',')
+        return text.rstrip().rstrip(",").rstrip().rstrip(",")
 
     @property
     def short_address(self):
@@ -75,15 +95,18 @@ class VendorsProfile(models.Model):
             f"{self.business_location_city if self.business_location_city else ''}, "
             f"{self.business_location_state if self.business_location_state else ''}"
         )
-        return text.rstrip().rstrip(',')
+        return text.rstrip().rstrip(",")
 
 
 class RidersProfile(models.Model):
     """A custom user class to manage all riders specific informations"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, null=False)
+
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, null=False
+    )
     phone_number2 = models.CharField(max_length=20, null=True)
     nin = models.CharField(max_length=20, null=True)
-    next_of_kin = models.CharField(max_length=225, null=True) # next of kin
+    next_of_kin = models.CharField(max_length=225, null=True)  # next of kin
     nok_phonenumber = models.CharField(max_length=20, null=True)
     motorcycle_type = models.CharField(max_length=225, null=True)
     motorcycle_brand = models.CharField(max_length=225, null=True)
@@ -100,7 +123,9 @@ class RidersProfile(models.Model):
 
     # Relationships
     # TODO: add one to many relationship to order items
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='rider_profile')
+    user = models.OneToOneField(
+        CustomUser, on_delete=models.CASCADE, related_name="rider_profile"
+    )
 
     class Meta:
         verbose_name = "Rider Profile"
@@ -108,6 +133,4 @@ class RidersProfile(models.Model):
 
     def __str__(self):
         """object return string"""
-        return f'Rider: [{self.user.email}]'
-
-
+        return f"Rider: [{self.user.email}]"

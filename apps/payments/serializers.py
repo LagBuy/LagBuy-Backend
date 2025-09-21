@@ -11,3 +11,8 @@ class VerifyPaymentSerializer(serializers.Serializer):
 
 class CreateRefundSerializer(serializers.Serializer):
     transaction_id = serializers.CharField()
+
+
+class PriorityWithdrawalSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    currency = serializers.CharField(max_length=5, required=False, default="NGN")
