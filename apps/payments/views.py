@@ -15,13 +15,13 @@ from rest_framework.views import APIView
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
-from .models import Payment
-from .serializers import InitializeTransactionSerializer, VerifyPaymentSerializer
-from .services import PaymentService
-
-from .models import PaymentStatus
-
-payment_service = PaymentService()
+from .models import Payment, PaymentStatus, PayoutRequest
+from .serializers import (
+    InitializeTransactionSerializer,
+    PriorityWithdrawalSerializer,
+    VerifyPaymentSerializer,
+)
+from .services import payment_service
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,9 @@ class VerifyPaymentView(APIView):
                 # remove items with the order products from user's cart
                 user = request.user
                 order = transaction.order
-                user.cart.items.filter(product__in=order.items.values_list('product', flat=True)).delete()
+                user.cart.items.filter(
+                    product__in=order.items.values_list("product", flat=True)
+                ).delete()
 
             order = OrderSerializer(transaction.order).data
             return Response(
@@ -204,7 +206,9 @@ class WebhookView(APIView):
                     # remove items with the order products from user's cart
                     user = payment.user
                     order = payment.order
-                    user.cart.items.filter(product__in=order.items.values_list('product', flat=True)).delete()
+                    user.cart.items.filter(
+                        product__in=order.items.values_list("product", flat=True)
+                    ).delete()
             except Payment.DoesNotExist as e:
                 logger.warning(
                     f"Payment.DoesNotExist in WebhookView._handle_event: {e}"
@@ -216,3 +220,64 @@ class WebhookView(APIView):
                     {"detail": "Error handling charge.success event."}, status=400
                 )
         return None
+
+
+class PriorityWithdrawalView(APIView):
+    """Endpoint to request an immediate (priority) payout with a processing fee.
+
+    Request body:
+      - amount: Decimal
+      - currency: optional (defaults to NGN)
+
+    Response contains the requested amount, fee applied, and net amount to be paid.
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    # flat fee for priority withdrawals (defaults to 500.00 NGN)
+    FEE_FLAT = float(getattr(settings, "PRIORITY_WITHDRAWAL_FEE_FLAT", 500.00))
+
+    def post(self, request):
+        serializer = PriorityWithdrawalSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        amount = serializer.validated_data["amount"]
+        currency = serializer.validated_data.get("currency", "NGN")
+
+        # calculate fee (flat) and net amount
+        fee = float(self.FEE_FLAT)
+        net_amount = float(amount) - fee
+
+        if net_amount <= 0:
+            return Response(
+                {"detail": "Amount must be greater than the priority withdrawal fee."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payout = PayoutRequest.objects.create(
+            amount=amount,
+            currency=currency,
+            vendor=request.user,
+            status="pending",
+            is_priority=True,
+            priority_fee=fee,
+            net_amount=net_amount,
+        )
+
+        return Response(
+            {
+                "status": True,
+                "detail": "Priority withdrawal requested.",
+                "request": {
+                    "id": str(payout.id),
+                    "amount": float(amount),
+                    "currency": currency,
+                    "fee": fee,
+                    "net_amount": net_amount,
+                    "status": payout.status,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )

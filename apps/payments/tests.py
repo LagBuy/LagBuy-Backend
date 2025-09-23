@@ -3,17 +3,18 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test.utils import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from apps.orders.models import Order, OrderItem
-from apps.payments.models import Payment, PaymentStatus
-from apps.userAuth.models import CustomUser
-from apps.profiles.models import UsersProfile
-from apps.products.models import Product
 from apps.cart.models import Cart, CartItem
+from apps.orders.models import Order, OrderItem
+from apps.payments.models import Payment, PaymentStatus, PayoutRequest
+from apps.products.models import Product
+from apps.profiles.models import UsersProfile, VendorsProfile
+from apps.userAuth.models import CustomUser
 
 User = get_user_model()
 
@@ -160,9 +161,7 @@ class VerifyPaymentViewTestCase(APITestCase):
             seller=self.user,
         )
         self.order_item = OrderItem.objects.create(
-            order=self.order,
-            product=self.product,
-            quantity=2
+            order=self.order, product=self.product, quantity=2
         )
         self.cart = Cart.objects.create(user=self.user)
         self.cart_item = CartItem.objects.create(
@@ -254,3 +253,93 @@ class VerifyPaymentViewTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Unable to verify payment", response.data["detail"])
+
+
+@override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
+class ProcessPayoutsCommandTestCase(APITestCase):
+    """Tests for the process_payouts management command ensuring priority requests are excluded."""
+
+    def setUp(self):
+        self.vendor = CustomUser.objects.create_user(
+            email="vendor@example.com", password="testpass"
+        )
+        VendorsProfile.objects.create(
+            user=self.vendor, bank_code="044", account_number="1234567890"
+        )
+
+    @patch(
+        "apps.payments.management.commands.process_payouts.payment_service.create_transfer_recipient"
+    )
+    @patch(
+        "apps.payments.management.commands.process_payouts.payment_service.initiate_transfer"
+    )
+    def test_command_skips_priority_requests(
+        self, mock_initiate, mock_create_recipient
+    ):
+        # Mock successful gateway responses
+        mock_create_recipient.return_value = {
+            "status": True,
+            "data": {"recipient_code": "RCP_TEST"},
+        }
+        mock_initiate.return_value = {
+            "status": True,
+            "data": {"transfer_code": "TRF_TEST"},
+        }
+
+        # create one priority and one regular payout
+        priority = PayoutRequest.objects.create(
+            amount=Decimal("1000.00"),
+            currency="NGN",
+            vendor=self.vendor,
+            is_priority=True,
+        )
+        regular = PayoutRequest.objects.create(
+            amount=Decimal("2000.00"),
+            currency="NGN",
+            vendor=self.vendor,
+            is_priority=False,
+        )
+
+        # run management command
+        call_command("process_payouts")
+
+        # Refresh from DB
+        priority.refresh_from_db()
+        regular.refresh_from_db()
+
+        # priority should remain unprocessed and status should still be PENDING
+        self.assertIsNone(priority.processed_at)
+        self.assertEqual(priority.status, PaymentStatus.PENDING)
+
+        # regular should be processed and marked PAID
+        self.assertIsNotNone(regular.processed_at)
+        self.assertEqual(regular.status, PaymentStatus.PAID)
+
+
+@override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
+class PriorityWithdrawalEndpointTestCase(APITestCase):
+    """Tests for the priority withdrawal endpoint behavior."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = CustomUser.objects.create_user(
+            email="vendor2@example.com", password="testpass123"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse("priority_withdraw")
+
+    def test_priority_withdraw_amount_too_small(self):
+        data = {"amount": "100.00"}
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_priority_withdraw_success_creates_request(self):
+        data = {"amount": "2000.00", "currency": "NGN"}
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # verify PayoutRequest created
+        pr = PayoutRequest.objects.get(id=response.data["request"]["id"])
+        self.assertTrue(pr.is_priority)
+        self.assertIsNotNone(pr.priority_fee)
+        self.assertIsNotNone(pr.net_amount)
