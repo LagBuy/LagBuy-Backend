@@ -33,12 +33,18 @@ class CartItemSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret["product"] = MinimalProductSerializer(instance.product).data
         # include vendor id for convenience
+        # the SerializerMethodField will also call `get_vendor_id`
         ret["vendor_id"] = (
             str(instance.product.seller.id)
             if instance.product and instance.product.seller
             else None
         )
         return ret
+
+    def get_vendor_id(self, obj):
+        return (
+            str(obj.product.seller.id) if obj.product and obj.product.seller else None
+        )
 
     def to_internal_value(self, data):
         # Accept product as an ID for writing
