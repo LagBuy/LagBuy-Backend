@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _
 from .models import UsersProfile, VendorsProfile, RidersProfile
 
 
@@ -72,7 +71,7 @@ class VendorBankDetailsUpdateSerializer(serializers.Serializer):
         user = self.context["request"].user
         if not user.check_password(value):
             raise serializers.ValidationError(
-                _("Invalid password"), code="invalid_password"
+                "Invalid password", code="invalid_password"
             )
         return value
 
@@ -87,5 +86,5 @@ class VendorBankDetailsUpdateSerializer(serializers.Serializer):
         validated_data.pop("password", None)
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
-        instance.save()
+        instance.save(update_fields=validated_data.keys())
         return instance

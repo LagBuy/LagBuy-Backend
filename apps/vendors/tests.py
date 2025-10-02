@@ -223,3 +223,4 @@ class VendorDashboardTest(TestCase):
         data = response.data["data"]
         self.assertEqual(data["First Category"], 50.0)
         self.assertEqual(data["Second Category"], 50.0)
+
