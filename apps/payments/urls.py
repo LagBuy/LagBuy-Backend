@@ -6,6 +6,7 @@ from .views import (
     VerifyPaymentView,
     WebhookView,
     PriorityWithdrawalView,
+    PayoutRequestView
 )
 
 InitializeTransactionView = extend_schema_view(
@@ -26,6 +27,7 @@ urlpatterns = [
     ),
     path("verify/<str:reference>/", VerifyPaymentView.as_view(), name="verify_payment"),
     path("webhook/", WebhookView.as_view(), name="webhook"),
+    path("withdraw/", PayoutRequestView.as_view(), name="withdraw"),
     path(
         "priority-withdraw/",
         PriorityWithdrawalView.as_view(),

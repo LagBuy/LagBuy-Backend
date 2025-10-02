@@ -15,11 +15,13 @@ from rest_framework.views import APIView
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
+
 from .models import Payment, PaymentStatus, PayoutRequest
 from .serializers import (
     InitializeTransactionSerializer,
     PriorityWithdrawalSerializer,
     VerifyPaymentSerializer,
+    PayoutRequestSerializer
 )
 from .services import payment_service
 
@@ -277,6 +279,48 @@ class PriorityWithdrawalView(APIView):
                     "fee": fee,
                     "net_amount": net_amount,
                     "status": payout.status,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PayoutRequestView(APIView):
+    """Endpoint for vendors to request a normal payout (processed at 5 PM)."""
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        serializer = PayoutRequestSerializer(data=request.data, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        payout = serializer.save(vendor=request.user, status="pending", is_priority=False)
+
+        # Deduct from wallet immediately
+        wallet = request.user.vendor_profile.wallet
+        wallet.balance -= payout.amount
+        wallet.save(update_fields=["balance"])
+
+        # Optionally: create a wallet transaction log
+        # WalletTransaction.objects.create(
+        #     wallet=wallet,
+        #     amount=payout.amount,
+        #     transaction_type="PAYOUT_REQUEST",
+        #     reference=f"PO-{payout.id}",
+        # )
+
+        return Response(
+            {
+                "status": True,
+                "detail": "Payout request created successfully.",
+                "request": {
+                    "id": str(payout.id),
+                    "amount": float(payout.amount),
+                    "currency": payout.currency,
+                    "status": payout.status,
+                    "requested_at": payout.requested_at,
                 },
             },
             status=status.HTTP_201_CREATED,

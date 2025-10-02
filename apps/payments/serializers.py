@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.payments.models import PayoutRequest
 
 
 class InitializeTransactionSerializer(serializers.Serializer):
@@ -16,3 +17,22 @@ class CreateRefundSerializer(serializers.Serializer):
 class PriorityWithdrawalSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     currency = serializers.CharField(max_length=5, required=False, default="NGN")
+
+
+class PayoutRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PayoutRequest
+        fields = ["id", "amount", "currency", "status", "requested_at"]
+
+    def validate_amount(self, value):
+        request = self.context.get("request")
+        user = request.user
+        # Get vendor wallet balance (depends where it's stored)
+        wallet = user.vendor_profile.wallet  
+
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be greater than zero.")
+        if value > wallet.balance:
+            raise serializers.ValidationError("Insufficient wallet balance.")
+        return value
+    
