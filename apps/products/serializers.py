@@ -75,7 +75,11 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_shop_location(self, obj):
         """get vendor shop location"""
-        return obj.seller.vendor_profile.short_address if hasattr(obj.seller, 'vendor_profile') else None
+        return (
+            obj.seller.vendor_profile.short_address
+            if hasattr(obj.seller, "vendor_profile")
+            else None
+        )
 
 
 class MinimalProductSerializer(serializers.ModelSerializer):
