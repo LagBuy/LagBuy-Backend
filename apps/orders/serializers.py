@@ -32,9 +32,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
     # items = OrderItemSerializer(many=True, required=False)
     vendor = serializers.PrimaryKeyRelatedField(
-        write_only=True,
-        queryset=CustomUser.objects.filter(roles__name="vendor")
-        )
+        write_only=True, queryset=CustomUser.objects.filter(roles__name="vendor")
+    )
 
     class Meta:
         model = Order
@@ -90,13 +89,19 @@ class OrderSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Insufficient stock for product {product.name}"
                 )
-            product.stock_quantity -= cart_item.quantity
+            # reserve stock by incrementing locked_quantity
+            # decrement available stock and increment locked quantity
+            product.stock_quantity = product.stock_quantity - cart_item.quantity
+            product.locked_quantity = (
+                product.locked_quantity or 0
+            ) + cart_item.quantity
             product.save()
             OrderItem.objects.create(
                 order=order,
                 product=product,
                 quantity=cart_item.quantity,
-                coupon=getattr(cart_item, 'coupon', None),
+                stock_locked=True,
+                coupon=getattr(cart_item, "coupon", None),
             )
         # TODO: Clear only the items from this vendor
         # cart.items.filter(product__seller=vendor).delete()
@@ -120,11 +125,13 @@ class OrderSerializer(serializers.ModelSerializer):
             instance.delivery_address = delivery_address
             instance.save(update_fields=["delivery_address", "updated_at"])
         return instance
-    
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         # Group items by seller
-        grouped_items = group_item_by_vendor(instance.items.select_related("product__seller").all())
+        grouped_items = group_item_by_vendor(
+            instance.items.select_related("product__seller").all()
+        )
         ret["items"] = grouped_items
         return ret
 

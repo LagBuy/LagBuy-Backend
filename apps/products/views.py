@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -10,8 +11,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.userAuth.permissions import IsASeller, IsOwnerSeller
-from common.services.storage import StorageService
-from common.utils.responses import error_response, success_response, customize_response
+from common.services.storage import STORAGE
+from common.utils.responses import customize_response, error_response, success_response
 
 from .filter import ProductFilter
 from .models import Category, Product
@@ -141,10 +142,10 @@ class ProductViewSet(viewsets.ModelViewSet):
             self.action, self.permission_classes
         )
         return super().get_permissions()
-    
+
     def get_queryset(self):
         """enable filtering by seller via query param"""
-        seller_id = self.request.query_params.get('vendor_id')
+        seller_id = self.request.query_params.get("vendor_id")
         if seller_id:
             return self.queryset.filter(seller_id=seller_id)
         return self.queryset
@@ -298,8 +299,7 @@ class ImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        storage = StorageService()
-        file_url = storage.upload_file(
+        file_url = STORAGE.upload_file(
             uploaded_image, uploaded_image.name, uploaded_image.content_type
         )
         if file_url:
@@ -312,15 +312,20 @@ class ImageUploadView(APIView):
 
 class ViewedProductsViewSet(viewsets.ReadOnlyModelViewSet):
     """A viewset to view user's recently viewed products"""
+
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
+    http_method_names = ["get"]
 
     def get_queryset(self):
         user = self.request.user
-        return user.user_profile.viewed_products.all() #.select_related('seller', 'categories')
+        return (
+            user.user_profile.viewed_products.all()
+        )  # .select_related('seller', 'categories')
 
     def list(self, request, *args, **kwargs):
         """Get list of user's recently viewed products"""
         response = super().list(request, *args, **kwargs)
-        return customize_response(response, "Recently viewed products retrieved successfully")
+        return customize_response(
+            response, "Recently viewed products retrieved successfully"
+        )
