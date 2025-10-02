@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -9,9 +10,11 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.orders.models import OrderItem
+from apps.payments.models import PaymentStatus
 from apps.userAuth.permissions import IsASeller, IsOwnerSeller
-from common.services.storage import StorageService
-from common.utils.responses import error_response, success_response, customize_response
+from common.services.storage import STORAGE
+from common.utils.responses import customize_response, error_response, success_response
 
 from .filter import ProductFilter
 from .models import Category, Product
@@ -141,10 +144,10 @@ class ProductViewSet(viewsets.ModelViewSet):
             self.action, self.permission_classes
         )
         return super().get_permissions()
-    
+
     def get_queryset(self):
         """enable filtering by seller via query param"""
-        seller_id = self.request.query_params.get('vendor_id')
+        seller_id = self.request.query_params.get("vendor_id")
         if seller_id:
             return self.queryset.filter(seller_id=seller_id)
         return self.queryset
@@ -159,6 +162,66 @@ class ProductViewSet(viewsets.ModelViewSet):
             return error_response(
                 "An error occurred while retrieving products.",
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAdminUser])
+    def sales_report(self, request):
+        """Return top 5 best-selling and bottom 5 poor-performing products by quantity sold.
+
+        Top/bottom computed from OrderItems that belong to orders with at least one PAID payment.
+        """
+        try:
+            # aggregate sold quantities and revenue for paid orders
+            paid_q = Q(order__payments__payment_status=PaymentStatus.PAID)
+            sold_agg = (
+                OrderItem.objects.filter(paid_q := paid_q)
+                .values("product")
+                .annotate(
+                    total_qty=Sum("quantity"),
+                    total_revenue=Sum(
+                        ExpressionWrapper(
+                            F("quantity") * F("product__price"),
+                            output_field=DecimalField(max_digits=18, decimal_places=2),
+                        )
+                    ),
+                )
+            )
+
+            # map product_id -> metrics
+            sold_map = {s["product"]: s for s in sold_agg}
+
+            # get all products and compute total_sold (0 when missing)
+            products = list(Product.objects.all())
+            products_with_metrics = []
+            for p in products:
+                metrics = sold_map.get(str(p.id)) or sold_map.get(p.id)
+                total_qty = metrics["total_qty"] if metrics else 0
+                total_revenue = metrics["total_revenue"] if metrics else 0
+                products_with_metrics.append(
+                    {
+                        "id": str(p.id),
+                        "name": p.name,
+                        "seller_id": str(p.seller_id) if p.seller_id else None,
+                        "total_sold": int(total_qty),
+                        "total_revenue": (
+                            float(total_revenue) if total_revenue is not None else 0.0
+                        ),
+                    }
+                )
+
+            # sort for top and bottom
+            top5 = sorted(
+                products_with_metrics, key=lambda x: x["total_sold"], reverse=True
+            )[:5]
+            bottom5 = sorted(products_with_metrics, key=lambda x: x["total_sold"])[:5]
+
+            return Response(
+                {"top_5": top5, "bottom_5": bottom5}, status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.exception(f"Error generating sales report: {e}")
+            return error_response(
+                "Error generating sales report.", status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def retrieve(self, request, *args, **kwargs):
@@ -298,8 +361,7 @@ class ImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        storage = StorageService()
-        file_url = storage.upload_file(
+        file_url = STORAGE.upload_file(
             uploaded_image, uploaded_image.name, uploaded_image.content_type
         )
         if file_url:
@@ -312,15 +374,20 @@ class ImageUploadView(APIView):
 
 class ViewedProductsViewSet(viewsets.ReadOnlyModelViewSet):
     """A viewset to view user's recently viewed products"""
+
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
+    http_method_names = ["get"]
 
     def get_queryset(self):
         user = self.request.user
-        return user.user_profile.viewed_products.all() #.select_related('seller', 'categories')
+        return (
+            user.user_profile.viewed_products.all()
+        )  # .select_related('seller', 'categories')
 
     def list(self, request, *args, **kwargs):
         """Get list of user's recently viewed products"""
         response = super().list(request, *args, **kwargs)
-        return customize_response(response, "Recently viewed products retrieved successfully")
+        return customize_response(
+            response, "Recently viewed products retrieved successfully"
+        )

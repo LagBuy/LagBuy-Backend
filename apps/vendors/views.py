@@ -1,8 +1,12 @@
+import csv
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
+from io import StringIO
 
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, OuterRef, Subquery
+from django.conf import settings
+from django.db.models import F, Max, Min, OuterRef, Subquery
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -10,9 +14,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.orders.models import OrderItem
-from apps.userAuth.permissions import IsASeller
 from apps.products.serializers import ProductSerializer
+from apps.userAuth.permissions import IsASeller
+from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
+
+from .utils import build_lost_customers_csv
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +286,166 @@ class CategoryDistribution(APIView):
                 message="An error occurred while getting Category distribution",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class CustomersOverview(APIView):
+    """Provide customer metrics for a vendor: new today, active (within N days), lost (>N days), and growth chart."""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            days = int(request.query_params.get("days", 90))
+            chart_days = int(request.query_params.get("chart_days", 30))
+            if days < 0 or chart_days <= 0:
+                return error_response(
+                    message="Invalid query parameters for days or chart_days",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            cutoff = timezone.now() - timedelta(days=days)
+
+            # Aggregate per buyer their first and last purchase with this seller
+            buyers = (
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
+                .values("order__buyer")
+                .annotate(
+                    first_purchase=Min("order__created_at"),
+                    last_purchase=Max("order__created_at"),
+                )
+            )
+
+            # New customers today
+            today = timezone.now().date()
+            new_today_count = buyers.filter(first_purchase__date=today).count()
+
+            # Active customers (bought within `days`)
+            active_count = buyers.filter(last_purchase__gte=cutoff).count()
+
+            # Lost customers (last purchase before cutoff)
+            lost_qs = buyers.filter(last_purchase__lt=cutoff)
+            lost_count = lost_qs.count()
+
+            # Growth chart: new customers per day for chart_days
+            chart = []
+            for i in range(chart_days - 1, -1, -1):
+                d = (timezone.now() - timedelta(days=i)).date()
+                count = buyers.filter(first_purchase__date=d).count()
+                chart.append({"date": d.isoformat(), "new_customers": count})
+
+            return success_response(
+                message="Customer overview",
+                data={
+                    "new_customers_today": new_today_count,
+                    "active_customers_count": active_count,
+                    "lost_customers_count": lost_count,
+                    "growth_chart": chart,
+                },
+            )
+        except Exception as e:
+            logger.exception(f"Error generating customer overview: {e}")
+            return error_response(
+                message="Error generating customer overview",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class LostCustomersExport(APIView):
+    """Export lost customers (no purchase in `days`) as CSV."""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            days = int(request.query_params.get("days", 90))
+            if days < 0:
+                return error_response(
+                    message="Invalid number of days. Days can't be negative",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            cutoff = timezone.now() - timedelta(days=days)
+
+            buyers = (
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
+                .values("order__buyer")
+                .annotate(last_purchase=Max("order__created_at"))
+            )
+
+            lost_ids = [
+                b["order__buyer"] for b in buyers.filter(last_purchase__lt=cutoff)
+            ]
+
+            # Fetch user data
+            from apps.userAuth.models import CustomUser
+
+            users = CustomUser.objects.filter(id__in=lost_ids).select_related(
+                "user_profile"
+            )
+
+            # Map last_purchase by user id
+            last_map = {
+                b["order__buyer"]: b["last_purchase"]
+                for b in buyers.filter(last_purchase__lt=cutoff)
+            }
+
+            # Build CSV bytes using helper
+            csv_bytes = build_lost_customers_csv(users, last_map)
+            filename = f"reports/lost_customers_{seller.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}.csv"
+            try:
+                STORAGE.s3_client.put_object(
+                    Bucket=STORAGE.bucket_name,
+                    Key=filename,
+                    Body=csv_bytes,
+                    ContentType="text/csv",
+                )
+                file_url = STORAGE.get_file_url(filename)
+                return success_response(
+                    message="Lost customers CSV uploaded",
+                    data={"url": file_url, "filename": filename},
+                )
+            except Exception as e:
+                logger.exception(f"Error uploading lost customers CSV to S3: {e}")
+                return error_response(
+                    message="Error uploading CSV to storage",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        except Exception as e:
+            logger.exception(f"Error exporting lost customers: {e}")
+            return error_response(
+                message="Error exporting lost customers",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+def build_lost_customers_csv(users, last_map):
+    """Return CSV bytes for given users and last_purchase mapping.
+
+    Args:
+        users: iterable of CustomUser objects (with optional user_profile relation)
+        last_map: dict mapping user id -> last_purchase datetime
+
+    Returns:
+        bytes: UTF-8 encoded CSV bytes
+    """
+    csv_buffer = StringIO()
+    writer = csv.writer(csv_buffer)
+    writer.writerow(["id", "email", "first_name", "last_name", "last_purchase"])
+    for u in users:
+        lp = last_map.get(str(u.id)) or last_map.get(u.id)
+        writer.writerow(
+            [
+                str(u.id),
+                u.email,
+                getattr(getattr(u, "user_profile", None), "first_name", ""),
+                getattr(getattr(u, "user_profile", None), "last_name", ""),
+                lp.isoformat() if lp is not None else "",
+            ]
+        )
+    return csv_buffer.getvalue().encode("utf-8")
