@@ -127,7 +127,9 @@ class NewCustomers(APIView):
                 .values("order__created_at")[:1]
             )
             new_customers = (
-                OrderItem.objects.filter(product__seller=seller, order__payments__payment_status="paid")
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
                 .annotate(first_order_date=Subquery(first_orders))
                 .filter(first_order_date__gte=days_ago)
                 .values(
@@ -168,7 +170,6 @@ class SalesPerMonth(APIView):
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
-
         try:
             start_date = timezone.now() - relativedelta(years=1)
             start_date = start_date.replace(day=1)
@@ -250,7 +251,6 @@ class CategoryDistribution(APIView):
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
-
         try:
             seller = request.user
             products = seller.products.all()
