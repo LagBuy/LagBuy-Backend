@@ -90,6 +90,8 @@ class OrderSerializer(serializers.ModelSerializer):
                     f"Insufficient stock for product {product.name}"
                 )
             # reserve stock by incrementing locked_quantity
+            # decrement available stock and increment locked quantity
+            product.stock_quantity = product.stock_quantity - cart_item.quantity
             product.locked_quantity = (
                 product.locked_quantity or 0
             ) + cart_item.quantity

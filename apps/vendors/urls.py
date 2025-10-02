@@ -11,6 +11,7 @@ from .views import (
     TotalProduct,
     TotalSale,
     VendorProductView,
+    VendorSalesReport,
 )
 
 TotalSale = extend_schema_view(
@@ -41,6 +42,10 @@ LostCustomersExport = extend_schema_view(
     get=extend_schema(tags=["Vendors Dashboard"], summary="Export Lost Customers CSV")
 )(LostCustomersExport)
 
+VendorSalesReport = extend_schema_view(
+    get=extend_schema(tags=["Vendors Dashboard"], summary="Get Vendor Sales Report")
+)(VendorSalesReport)
+
 urlpatterns = [
     path("products/", VendorProductView.as_view(), name="vendor-products"),
     path("totalsale/", TotalSale.as_view(), name="total-sale"),
@@ -59,4 +64,5 @@ urlpatterns = [
         CategoryDistribution.as_view(),
         name="category-distribution",
     ),
+    path("sales-report/", VendorSalesReport.as_view(), name="vendor-sales-report"),
 ]

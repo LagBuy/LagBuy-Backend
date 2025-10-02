@@ -1,15 +1,15 @@
+from dateutil.relativedelta import relativedelta
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
-from django.utils import timezone
-from dateutil.relativedelta import relativedelta
 
-from apps.userAuth.models import CustomUser, Role
-from apps.profiles.models import UsersProfile
 from apps.orders.models import Order, OrderItem
-from apps.products.models import Product, Category
 from apps.payments.models import Payment, PaymentStatus
+from apps.products.models import Category, Product
+from apps.profiles.models import UsersProfile
+from apps.userAuth.models import CustomUser, Role
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -19,8 +19,7 @@ class VendorDashboardTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = CustomUser.objects.create_user(
-            email="test@user.com",
-            password="testpassword"
+            email="test@user.com", password="testpassword"
         )
         cls.userProfile = UsersProfile.objects.create(
             user=cls.user,
@@ -29,15 +28,13 @@ class VendorDashboardTest(TestCase):
             phone_number="0909222002",
         )
         cls.seller = CustomUser.objects.create_user(
-            email="test@seller.com",
-            password="testpassword"
+            email="test@seller.com", password="testpassword"
         )
         cls.seller2 = CustomUser.objects.create_user(
-            email="test2@seller.com",
-            password="testpassword"
+            email="test2@seller.com", password="testpassword"
         )
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role = Role.objects.create(name="user")
+        cls.vendor_role = Role.objects.create(name="vendor")
         cls.user.roles.add(cls.user_role)
         cls.seller.roles.add(cls.user_role)
         cls.seller.roles.add(cls.vendor_role)
@@ -72,9 +69,7 @@ class VendorDashboardTest(TestCase):
         cls.product2.categories.add(cls.category2)
         cls.product3.categories.add(cls.category2)
 
-        cls.order = Order.objects.create(
-            buyer=cls.user, delivery_address="123 Test St"
-        )
+        cls.order = Order.objects.create(buyer=cls.user, delivery_address="123 Test St")
         cls.order_item = OrderItem.objects.create(
             order=cls.order, product=cls.product, quantity=2
         )
@@ -116,7 +111,7 @@ class VendorDashboardTest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.client.force_authenticate(user=self.seller)
-    
+
     def test_vendor_product_list(self):
         """Test the vendor product list view"""
         url = reverse_lazy("vendor-products")
@@ -127,10 +122,10 @@ class VendorDashboardTest(TestCase):
         product_names = [product["name"] for product in data]
         self.assertIn("Test Product", product_names)
         self.assertIn("Another Product", product_names)
-    
+
     def test_total_sale(self):
         """Test vendor total sale view. Ensures the unpaid order is not added
-           Ensure it only includes products owned by the logged in user
+        Ensure it only includes products owned by the logged in user
         """
         url = reverse_lazy("total-sale")
         response = self.client.get(url)
@@ -152,7 +147,7 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["total_product"], 2)
-    
+
     def test_new_customers(self):
         """Test the number of new unique customers a vendor had in the past 30 days"""
         url = reverse_lazy("new-customers")
@@ -160,8 +155,8 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["new_customers_count"], 1)
-        self.assertEqual(data['new_customers'][0]['first_name'], 'Buyer')
-    
+        self.assertEqual(data["new_customers"][0]["first_name"], "Buyer")
+
     def test_new_customers_in_90_days(self):
         """Test the number of new unique customers a vendor had in the past 30 days"""
         url = reverse_lazy("new-customers")
@@ -169,8 +164,8 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["new_customers_count"], 1)
-        self.assertEqual(data['new_customers'][0]['first_name'], 'Buyer')
-    
+        self.assertEqual(data["new_customers"][0]["first_name"], "Buyer")
+
     def test_sale_per_month(self):
         """Test the total sale per month view.
         Returns the total sale for each month for one year.
@@ -188,7 +183,7 @@ class VendorDashboardTest(TestCase):
 
         self.assertEqual(data[key], 300.0)
         self.assertEqual(data[key2], 0)
-    
+
     def test_low_stock_count(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
@@ -197,20 +192,20 @@ class VendorDashboardTest(TestCase):
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 1)
         self.assertEqual(data["low_stock_products"][0]["name"], "Another Product")
-    
+
     def test_low_stock_count_less_than_20(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
-        response = self.client.get(url, { "lt": 20 })
+        response = self.client.get(url, {"lt": 20})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 2)
         self.assertEqual(data["low_stock_products"][0]["name"], "Another Product")
-    
+
     def test_low_stock_count_with_negative_value(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
-        response = self.client.get(url, { "lt": -5 })
+        response = self.client.get(url, {"lt": -5})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 0)
@@ -224,3 +219,40 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(data["First Category"], 50.0)
         self.assertEqual(data["Second Category"], 50.0)
 
+    def test_vendor_sales_report(self):
+        """Test the vendor sales report endpoint returns correct totals and lists"""
+        url = reverse_lazy("vendor-sales-report")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.data.get("data")
+        self.assertIsNotNone(payload)
+        totals = payload.get("totals")
+        # orders containing this seller's products: order and order2
+        self.assertEqual(totals.get("orders"), 2)
+        self.assertEqual(int(totals.get("quantity_sold")), 4)
+        self.assertEqual(float(totals.get("revenue")), 300.0)
+
+        # top_5 and bottom_5 should be present
+        self.assertIn("top_5", payload)
+        self.assertIn("bottom_5", payload)
+        self.assertTrue(len(payload.get("top_5", [])) >= 1)
+
+    def test_lost_customers_export_uploads_csv(self):
+        """Ensure lost customers export builds CSV and uploads to storage (mocked)."""
+        url = reverse_lazy("lost-customers-export")
+        from unittest.mock import patch
+
+        # Patch the STORAGE client used in the view to avoid a network call
+        with patch(
+            "apps.vendors.views.STORAGE.s3_client.put_object"
+        ) as mock_put, patch(
+            "apps.vendors.views.STORAGE.get_file_url",
+            return_value="https://example.com/reports/lost.csv",
+        ) as mock_get_url:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            data = response.data.get("data")
+            # Should return url and filename even if list is empty
+            self.assertIn("url", data)
+            self.assertIn("filename", data)
+            mock_put.assert_called()

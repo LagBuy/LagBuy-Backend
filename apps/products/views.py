@@ -10,8 +10,6 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.orders.models import OrderItem
-from apps.payments.models import PaymentStatus
 from apps.userAuth.permissions import IsASeller, IsOwnerSeller
 from common.services.storage import STORAGE
 from common.utils.responses import customize_response, error_response, success_response
@@ -162,66 +160,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             return error_response(
                 "An error occurred while retrieving products.",
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @action(detail=False, methods=["get"], permission_classes=[IsAdminUser])
-    def sales_report(self, request):
-        """Return top 5 best-selling and bottom 5 poor-performing products by quantity sold.
-
-        Top/bottom computed from OrderItems that belong to orders with at least one PAID payment.
-        """
-        try:
-            # aggregate sold quantities and revenue for paid orders
-            paid_q = Q(order__payments__payment_status=PaymentStatus.PAID)
-            sold_agg = (
-                OrderItem.objects.filter(paid_q := paid_q)
-                .values("product")
-                .annotate(
-                    total_qty=Sum("quantity"),
-                    total_revenue=Sum(
-                        ExpressionWrapper(
-                            F("quantity") * F("product__price"),
-                            output_field=DecimalField(max_digits=18, decimal_places=2),
-                        )
-                    ),
-                )
-            )
-
-            # map product_id -> metrics
-            sold_map = {s["product"]: s for s in sold_agg}
-
-            # get all products and compute total_sold (0 when missing)
-            products = list(Product.objects.all())
-            products_with_metrics = []
-            for p in products:
-                metrics = sold_map.get(str(p.id)) or sold_map.get(p.id)
-                total_qty = metrics["total_qty"] if metrics else 0
-                total_revenue = metrics["total_revenue"] if metrics else 0
-                products_with_metrics.append(
-                    {
-                        "id": str(p.id),
-                        "name": p.name,
-                        "seller_id": str(p.seller_id) if p.seller_id else None,
-                        "total_sold": int(total_qty),
-                        "total_revenue": (
-                            float(total_revenue) if total_revenue is not None else 0.0
-                        ),
-                    }
-                )
-
-            # sort for top and bottom
-            top5 = sorted(
-                products_with_metrics, key=lambda x: x["total_sold"], reverse=True
-            )[:5]
-            bottom5 = sorted(products_with_metrics, key=lambda x: x["total_sold"])[:5]
-
-            return Response(
-                {"top_5": top5, "bottom_5": bottom5}, status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            logger.exception(f"Error generating sales report: {e}")
-            return error_response(
-                "Error generating sales report.", status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def retrieve(self, request, *args, **kwargs):

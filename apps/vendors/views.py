@@ -1,12 +1,8 @@
-import csv
 import logging
-from datetime import date, timedelta
-from io import StringIO
+from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
-from django.conf import settings
 from django.db.models import F, Max, Min, OuterRef, Subquery
-from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -19,7 +15,11 @@ from apps.userAuth.permissions import IsASeller
 from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
 
-from .utils import build_lost_customers_csv
+from .utils import (
+    build_lost_customers_csv,
+    vendor_aggregates_and_products,
+    vendor_trend_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -424,28 +424,65 @@ class LostCustomersExport(APIView):
             )
 
 
-def build_lost_customers_csv(users, last_map):
-    """Return CSV bytes for given users and last_purchase mapping.
+class VendorSalesReport(APIView):
+    """Seller-scoped product & sales report: totals, top/bottom performers, and trend charts."""
 
-    Args:
-        users: iterable of CustomUser objects (with optional user_profile relation)
-        last_map: dict mapping user id -> last_purchase datetime
+    permission_classes = [IsAuthenticated, IsASeller]
 
-    Returns:
-        bytes: UTF-8 encoded CSV bytes
-    """
-    csv_buffer = StringIO()
-    writer = csv.writer(csv_buffer)
-    writer.writerow(["id", "email", "first_name", "last_name", "last_purchase"])
-    for u in users:
-        lp = last_map.get(str(u.id)) or last_map.get(u.id)
-        writer.writerow(
-            [
-                str(u.id),
-                u.email,
-                getattr(getattr(u, "user_profile", None), "first_name", ""),
-                getattr(getattr(u, "user_profile", None), "last_name", ""),
-                lp.isoformat() if lp is not None else "",
-            ]
-        )
-    return csv_buffer.getvalue().encode("utf-8")
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            trend = request.query_params.get("trend", "daily").lower()
+            days = int(request.query_params.get("days", 30))
+            include_profit = request.query_params.get(
+                "include_profit", "false"
+            ).lower() in ("1", "true", "yes")
+
+            if days <= 0:
+                return error_response(
+                    message="`days` must be a positive integer",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            totals_clean, products_with_metrics = vendor_aggregates_and_products(
+                seller, include_profit=include_profit
+            )
+
+            total_orders = totals_clean.get("orders")
+            total_qty_all = totals_clean.get("quantity_sold")
+            total_revenue_all = totals_clean.get("revenue")
+
+            # compute total_profit_all from per-product metrics when include_profit
+            total_profit_all = 0.0
+            if include_profit:
+                for p in products_with_metrics:
+                    if p.get("profit") is not None:
+                        total_profit_all += float(p.get("profit"))
+
+            top5 = sorted(
+                products_with_metrics, key=lambda x: x["total_sold"], reverse=True
+            )[:5]
+            bottom5 = sorted(products_with_metrics, key=lambda x: x["total_sold"])[:5]
+
+            trend_data = vendor_trend_data(seller, days=days, trend=trend)
+
+            return success_response(
+                message="Vendor sales report",
+                data={
+                    "totals": {
+                        "orders": total_orders,
+                        "quantity_sold": int(total_qty_all),
+                        "revenue": float(total_revenue_all),
+                        "profit": float(total_profit_all) if include_profit else None,
+                    },
+                    "top_5": top5,
+                    "bottom_5": bottom5,
+                    "trend": trend_data,
+                },
+            )
+        except Exception as e:
+            logger.exception(f"Error generating vendor sales report: {e}")
+            return error_response(
+                message="Error generating vendor sales report",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

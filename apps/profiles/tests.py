@@ -262,7 +262,6 @@ class ProfileAPITest(TestCase):
     def test_update_vendor(self):
         """Test updating a user profile"""
         url = reverse_lazy("rest_user_details")
-        print(url, "test_update_vendor")
         data = {
             "roles": [],
             "vendor_profile": {
@@ -450,7 +449,6 @@ class SensitiveActionsForVendorTests(TestCase):
             "bank_code": "002",
         }
         resp = self.client.patch(self.bank_url, data, format="json")
-        print(resp, "")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.vendorProfile.refresh_from_db()
 
