@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.vendors",
     "apps.profiles",
     "apps.payments",
+    "apps.notifications",
     "common",
     "core",
 ]
