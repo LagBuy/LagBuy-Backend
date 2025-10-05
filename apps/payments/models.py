@@ -42,6 +42,8 @@ class Payment(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.SET_NULL, null=True, related_name="payments"
     )
+    # Whether vendor wallets have been credited for this payment
+    wallet_credited = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Payment"
