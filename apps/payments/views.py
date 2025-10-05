@@ -22,6 +22,7 @@ from .serializers import (
     VerifyPaymentSerializer,
 )
 from .services import payment_service
+from .utils import distribute_payment_to_vendors
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,17 @@ class VerifyPaymentView(APIView):
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
+                # Credit vendor wallets for this order once
+                try:
+                    if (
+                        not transaction.wallet_credited
+                        and transaction.order is not None
+                    ):
+                        distribute_payment_to_vendors(transaction.order)
+                        transaction.wallet_credited = True
+                        transaction.save(update_fields=["wallet_credited"])
+                except Exception as e:
+                    logger.error(f"Error crediting vendor wallets: {e}", exc_info=True)
                 # remove items with the order products from user's cart
                 user = request.user
                 order = transaction.order
@@ -203,6 +215,17 @@ class WebhookView(APIView):
                 if payment.payment_status != PaymentStatus.PAID:
                     payment.payment_status = PaymentStatus.PAID
                     payment.save(update_fields=["payment_status"])
+                    # Credit vendor wallets for this payment if not done
+                    try:
+                        if not payment.wallet_credited and payment.order is not None:
+                            distribute_payment_to_vendors(payment.order)
+                            payment.wallet_credited = True
+                            payment.save(update_fields=["wallet_credited"])
+                    except Exception as e:
+                        logger.error(
+                            f"Error crediting vendor wallets in webhook: {e}",
+                            exc_info=True,
+                        )
                     # remove items with the order products from user's cart
                     user = payment.user
                     order = payment.order
