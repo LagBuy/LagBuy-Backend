@@ -89,12 +89,18 @@ class OrderSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Insufficient stock for product {product.name}"
                 )
-            product.stock_quantity -= cart_item.quantity
+            # reserve stock by incrementing locked_quantity
+            # decrement available stock and increment locked quantity
+            product.stock_quantity = product.stock_quantity - cart_item.quantity
+            product.locked_quantity = (
+                product.locked_quantity or 0
+            ) + cart_item.quantity
             product.save()
             OrderItem.objects.create(
                 order=order,
                 product=product,
                 quantity=cart_item.quantity,
+                stock_locked=True,
                 coupon=getattr(cart_item, "coupon", None),
             )
         # TODO: Clear only the items from this vendor

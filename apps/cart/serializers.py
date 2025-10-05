@@ -12,6 +12,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     """
 
     total_price = serializers.ReadOnlyField()
+    vendor_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = CartItem
@@ -20,6 +21,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "cart",
             "product",
             "quantity",
+            "vendor_id",
             "total_price",
             "created_at",
             "updated_at",
@@ -30,7 +32,19 @@ class CartItemSerializer(serializers.ModelSerializer):
         # Use MinimalProductSerializer for reading
         ret = super().to_representation(instance)
         ret["product"] = MinimalProductSerializer(instance.product).data
+        # include vendor id for convenience
+        # the SerializerMethodField will also call `get_vendor_id`
+        ret["vendor_id"] = (
+            str(instance.product.seller.id)
+            if instance.product and instance.product.seller
+            else None
+        )
         return ret
+
+    def get_vendor_id(self, obj):
+        return (
+            str(obj.product.seller.id) if obj.product and obj.product.seller else None
+        )
 
     def to_internal_value(self, data):
         # Accept product as an ID for writing
@@ -71,10 +85,12 @@ class CartSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["total_price", "created_at", "updated_at"]
-    
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         # Group items by vendor
-        grouped_items = group_item_by_vendor(instance.items.select_related("product__seller").all())
+        grouped_items = group_item_by_vendor(
+            instance.items.select_related("product__seller").all()
+        )
         ret["items"] = grouped_items
         return ret

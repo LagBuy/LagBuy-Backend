@@ -94,3 +94,14 @@ class StorageService:
         except ClientError:
             logger.error(f"Failed to delete file {file_name} from S3")
             return False
+
+
+# Module-level singleton StorageService instance used across the project.
+try:
+    STORAGE = StorageService()
+except Exception as e:
+    # Initialization may fail if environment is not configured (e.g. in local tests).
+    logger.warning(f"Failed to initialize StorageService singleton: {e}")
+    STORAGE = None
+
+__all__ = ["StorageService", "STORAGE"]
