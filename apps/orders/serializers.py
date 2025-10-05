@@ -143,6 +143,14 @@ class OrderItemStatusUpdateSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ["delivery_status"]
 
+    def validate_delivery_status(self, value):
+        # value is the desired new status string (e.g, "SHIPPED")
+        item = self.instance
+        allowed, reason = item.can_transition_delivery(value)
+        if not allowed:
+            raise serializers.ValidationError(reason)
+        return value
+
 
 class SellerOrderItemSerializer(serializers.ModelSerializer):
     """Serializer for OrderItem model for seller's view."""

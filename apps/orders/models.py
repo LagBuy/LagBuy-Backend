@@ -136,6 +136,47 @@ class OrderItem(models.Model):
     )
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
 
+    ALLOWED_TRANSITIONS = {
+        DeliveryStatus.PENDING: {DeliveryStatus.SHIPPED, DeliveryStatus.RETURNED},
+        DeliveryStatus.SHIPPED: {DeliveryStatus.DELIVERED, DeliveryStatus.RETURNED},
+        DeliveryStatus.DELIVERED: set(),
+        DeliveryStatus.RETURNED: set(),
+    }
+
+    def can_transition_delivery(self, new_status):
+        """
+        Returns (True, None) if allowed, else (False, reason).
+        new_status can be either a string or DeliveryStatus member.
+        """
+        current = self.delivery_status
+        if isinstance(new_status, self.DeliveryStatus):
+            new_s = new_status.value
+        else:
+            new_s = str(new_status)
+
+        allowed = set(
+            s.value
+            for s in self.ALLOWED_TRANSITIONS.get(self.DeliveryStatus(current), set())
+        )
+        if current not in [choice.value for choice in self.DeliveryStatus]:
+            # If current not found in ALLOWED_TRANSITIONS, deny by default
+            return False, f"Uknown current state {current}"
+
+        if new_s == current:
+            return False, f"Order item already in state {current}"
+
+        if new_s not in allowed:
+            return False, f"Invalid transition from '{current}' to '{new_s}'."
+
+        # Business rule: cannot ship unless order is paid
+        if new_s == self.DeliveryStatus.SHIPPED.value:
+            order_payment_status = self.order.payment_status
+            # order.payment_status returns Order.PaymentStatus enum
+            if order_payment_status != self.order.PaymentStatus.PAID:
+                return False, "Cannot ship before order is paid."
+
+        return True, None
+
     @property
     def total_price(self) -> Decimal:
         """
