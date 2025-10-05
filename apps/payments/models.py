@@ -1,9 +1,7 @@
 import uuid
 
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
-from decimal import Decimal
-from django.db import transaction
 
 from apps.orders.models import Order
 from apps.userAuth.models import CustomUser
@@ -123,7 +121,7 @@ class Escrow(models.Model):
         Payment, on_delete=models.CASCADE, related_name="escrow", null=True, blank=True
     )
     order = models.OneToOneField(
-        "apps.orders.Order", on_delete=models.CASCADE, related_name="escrow"
+        Order, on_delete=models.CASCADE, related_name="escrow"
     )
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     currency = models.CharField(max_length=5, default="NGN")
