@@ -16,3 +16,15 @@ class CreateRefundSerializer(serializers.Serializer):
 class PriorityWithdrawalSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     currency = serializers.CharField(max_length=5, required=False, default="NGN")
+
+
+class EscrowSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    order = serializers.UUIDField()
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    currency = serializers.CharField(max_length=5, required=False, default="NGN")
+    status = serializers.CharField(read_only=True)
+
+
+class EscrowActionSerializer(serializers.Serializer):
+    escrow_id = serializers.UUIDField()
