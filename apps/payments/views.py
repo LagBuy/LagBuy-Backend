@@ -16,9 +16,12 @@ from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
 from .models import Escrow, EscrowStatus, Payment, PaymentStatus, PayoutRequest
-from .serializers import (InitializeTransactionSerializer,
-                          PriorityWithdrawalSerializer,
-                          VerifyPaymentSerializer)
+from .serializers import (
+    InitializeTransactionSerializer,
+    PriorityWithdrawalSerializer,
+    VerifyPaymentSerializer,
+    ResolveBankAccountSerializer,
+)
 from .services import payment_service
 from .utils import distribute_payment_to_vendors
 
@@ -400,5 +403,35 @@ class EscrowRefundView(APIView):
             logger.error(f"Error refunding escrow: {e}", exc_info=True)
             return Response(
                 {"detail": "Unable to refund escrow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class ResolveBankAccountView(APIView):
+    """Resolve a bank account number to an account name using the payment service.
+
+    Request body:
+      - account_number: str
+      - bank_code: str
+
+    Response mirrors the payment provider's response.
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        serializer = ResolveBankAccountSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        account_number = serializer.validated_data["account_number"]
+        bank_code = serializer.validated_data["bank_code"]
+        try:
+            response = payment_service.resolve_bank_account(account_number, bank_code)
+            return Response(response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error resolving bank account: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to resolve account."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
