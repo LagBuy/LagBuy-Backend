@@ -28,3 +28,8 @@ class EscrowSerializer(serializers.Serializer):
 
 class EscrowActionSerializer(serializers.Serializer):
     escrow_id = serializers.UUIDField()
+
+
+class ResolveBankAccountSerializer(serializers.Serializer):
+    account_number = serializers.CharField(max_length=20)
+    bank_code = serializers.CharField(max_length=20)
