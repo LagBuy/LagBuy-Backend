@@ -35,7 +35,7 @@ class ProductSerializer(serializers.ModelSerializer):
     - Returns category names instead of IDs.
     """
 
-    seller = serializers.StringRelatedField()
+    seller = serializers.SerializerMethodField()
     categories = serializers.SlugRelatedField(
         many=True, slug_field="name", queryset=Category.objects.all()
     )
@@ -86,6 +86,9 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_vendor_id(self, obj):
         return str(obj.seller.id) if obj.seller else None
 
+    def get_seller(self, obj):
+        return obj.get_seller_name()
+
 
 class MinimalProductSerializer(serializers.ModelSerializer):
     """
@@ -93,7 +96,7 @@ class MinimalProductSerializer(serializers.ModelSerializer):
     Includes only essential fields for cart display, including seller and first image.
     """
 
-    seller = serializers.StringRelatedField()
+    seller = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     vendor_id = serializers.SerializerMethodField(read_only=True)
 
@@ -108,3 +111,6 @@ class MinimalProductSerializer(serializers.ModelSerializer):
 
     def get_vendor_id(self, obj):
         return str(obj.seller.id) if obj.seller else None
+
+    def get_seller(self, obj):
+        return obj.get_seller_name()

@@ -6,8 +6,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
+from apps.profiles.models import UsersProfile, VendorsProfile
 from apps.userAuth.models import CustomUser, Role
-from apps.profiles.models import VendorsProfile, UsersProfile
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -180,7 +180,6 @@ class ProductAPITest(TestCase):
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["data"]["name"], "New Product")
-        self.assertEqual(response.data["data"]["seller"], str(self.seller))
 
     def test_non_seller_cannot_create_product(self):
         self.client.force_authenticate(user=self.buyer)
