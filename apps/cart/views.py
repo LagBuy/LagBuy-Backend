@@ -61,7 +61,8 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
                         )
                     if quantity <= 0:
                         return error_response(
-                            "Quantity must be greater than zero.", status.HTTP_400_BAD_REQUEST
+                            "Quantity must be greater than zero.",
+                            status.HTTP_400_BAD_REQUEST,
                         )
                     cart_item.quantity = quantity  # Replace with provided quantity
                 else:
@@ -85,7 +86,8 @@ class CartViewSet(viewsets.ReadOnlyModelViewSet):
                     )
                 if quantity <= 0:
                     return error_response(
-                        "Quantity must be greater than zero.", status.HTTP_400_BAD_REQUEST
+                        "Quantity must be greater than zero.",
+                        status.HTTP_400_BAD_REQUEST,
                     )
                 data["quantity"] = quantity
             else:

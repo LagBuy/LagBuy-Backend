@@ -30,7 +30,7 @@ class PaymentService:
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in allowed_kwargs}
         return self._make_request("GET", f"/bank?country={country}", filtered_kwargs)
 
-    def resolve_account_number(
+    def resolve_bank_account(
         self, account_number: str, bank_code: str
     ) -> Dict[str, Any]:
         return self._make_request(

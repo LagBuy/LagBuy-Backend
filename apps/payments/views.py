@@ -16,14 +16,18 @@ from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
 
-from .models import Payment, PaymentStatus, PayoutRequest
+
+
+from .models import Escrow, EscrowStatus, Payment, PaymentStatus, PayoutRequest
 from .serializers import (
     InitializeTransactionSerializer,
     PriorityWithdrawalSerializer,
     VerifyPaymentSerializer,
+    ResolveBankAccountSerializer,
     PayoutRequestSerializer
 )
 from .services import payment_service
+from .utils import distribute_payment_to_vendors
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +115,21 @@ class VerifyPaymentView(APIView):
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
+                # Create an escrow record to hold funds until release
+                try:
+                    if transaction.order is not None:
+                        # create escrow if not exists
+                        Escrow.objects.get_or_create(
+                            payment=transaction,
+                            order=transaction.order,
+                            defaults={
+                                "amount": transaction.amount,
+                                "currency": transaction.currency,
+                                "status": EscrowStatus.HELD,
+                            },
+                        )
+                except Exception as e:
+                    logger.error(f"Error creating escrow record: {e}", exc_info=True)
                 # remove items with the order products from user's cart
                 user = request.user
                 order = transaction.order
@@ -205,6 +224,28 @@ class WebhookView(APIView):
                 if payment.payment_status != PaymentStatus.PAID:
                     payment.payment_status = PaymentStatus.PAID
                     payment.save(update_fields=["payment_status"])
+                    # Create an escrow record to hold funds until release
+                    try:
+                        if payment.order is not None:
+                            Escrow.objects.get_or_create(
+                                payment=payment,
+                                order=payment.order,
+                                defaults={
+                                    "amount": payment.amount,
+                                    "currency": payment.currency,
+                                    "status": EscrowStatus.HELD,
+                                },
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Error creating escrow record in webhook: {e}",
+                            exc_info=True,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Error crediting vendor wallets in webhook: {e}",
+                            exc_info=True,
+                        )
                     # remove items with the order products from user's cart
                     user = payment.user
                     order = payment.order
@@ -285,43 +326,116 @@ class PriorityWithdrawalView(APIView):
         )
 
 
-class PayoutRequestView(APIView):
-    """Endpoint for vendors to request a normal payout (processed at 5 PM)."""
+class EscrowReleaseView(APIView):
+    """Admin endpoint to release an escrowed payment to vendors.
+
+    POST body: { "escrow_id": "uuid" }
+    """
 
     permission_classes = [IsAuthenticated]
     http_method_names = ["post"]
 
     def post(self, request):
-        serializer = PayoutRequestSerializer(data=request.data, context={"request": request})
+        # Minimal permission check -- assume staff can release escrow
+        if not request.user.is_staff:
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = VerifyPaymentSerializer(data=request.data)
+        # reuse simple serializer for a single field 'reference' isn't ideal, create local handling
+        escrow_id = request.data.get("escrow_id")
+        if not escrow_id:
+            return Response(
+                {"detail": "escrow_id required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            escrow = Escrow.objects.get(id=escrow_id)
+            if escrow.status != EscrowStatus.HELD:
+                return Response(
+                    {"detail": "Escrow not held."}, status=status.HTTP_400_BAD_REQUEST
+                )
+            result = escrow.release()
+            return Response(
+                {"status": True, "detail": "Escrow released.", "credits": result},
+                status=status.HTTP_200_OK,
+            )
+        except Escrow.DoesNotExist:
+            return Response(
+                {"detail": "Escrow not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error releasing escrow: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to release escrow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class EscrowRefundView(APIView):
+    """Admin endpoint to mark and process a refund for an escrow.
+
+    POST body: { "escrow_id": "uuid" }
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        escrow_id = request.data.get("escrow_id")
+        if not escrow_id:
+            return Response(
+                {"detail": "escrow_id required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            escrow = Escrow.objects.get(id=escrow_id)
+            if escrow.status != EscrowStatus.HELD:
+                return Response(
+                    {"detail": "Escrow cannot be refunded."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            escrow.refund()
+            # Note: actual payment gateway refund should be implemented separately
+            return Response(
+                {"status": True, "detail": "Escrow marked refunded."},
+                status=status.HTTP_200_OK,
+            )
+        except Escrow.DoesNotExist:
+            return Response(
+                {"detail": "Escrow not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error refunding escrow: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to refund escrow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class ResolveBankAccountView(APIView):
+    """Resolve a bank account number to an account name using the payment service.
+
+    Request body:
+      - account_number: str
+      - bank_code: str
+
+    Response mirrors the payment provider's response.
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        serializer = ResolveBankAccountSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        payout = serializer.save(vendor=request.user, status="pending", is_priority=False)
-
-        # Deduct from wallet immediately
-        wallet = request.user.vendor_profile.wallet
-        wallet.balance -= payout.amount
-        wallet.save(update_fields=["balance"])
-
-        # Optionally: create a wallet transaction log
-        # WalletTransaction.objects.create(
-        #     wallet=wallet,
-        #     amount=payout.amount,
-        #     transaction_type="PAYOUT_REQUEST",
-        #     reference=f"PO-{payout.id}",
-        # )
-
-        return Response(
-            {
-                "status": True,
-                "detail": "Payout request created successfully.",
-                "request": {
-                    "id": str(payout.id),
-                    "amount": float(payout.amount),
-                    "currency": payout.currency,
-                    "status": payout.status,
-                    "requested_at": payout.requested_at,
-                },
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        account_number = serializer.validated_data["account_number"]
+        bank_code = serializer.validated_data["bank_code"]
+        try:
+            response = payment_service.resolve_bank_account(account_number, bank_code)
+            return Response(response, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error resolving bank account: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to resolve account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

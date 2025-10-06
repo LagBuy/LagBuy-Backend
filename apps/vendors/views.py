@@ -2,7 +2,7 @@ import logging
 from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, OuterRef, Subquery
+from django.db.models import F, Max, Min, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -10,9 +10,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.orders.models import OrderItem
-from apps.userAuth.permissions import IsASeller
 from apps.products.serializers import ProductSerializer
+from apps.userAuth.permissions import IsASeller
+from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
+
+from .utils import (
+    build_lost_customers_csv,
+    vendor_aggregates_and_products,
+    vendor_trend_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +134,9 @@ class NewCustomers(APIView):
                 .values("order__created_at")[:1]
             )
             new_customers = (
-                OrderItem.objects.filter(product__seller=seller, order__payments__payment_status="paid")
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
                 .annotate(first_order_date=Subquery(first_orders))
                 .filter(first_order_date__gte=days_ago)
                 .values(
@@ -168,7 +177,6 @@ class SalesPerMonth(APIView):
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
-
         try:
             start_date = timezone.now() - relativedelta(years=1)
             start_date = start_date.replace(day=1)
@@ -250,7 +258,6 @@ class CategoryDistribution(APIView):
     permission_classes = [IsAuthenticated, IsASeller]
 
     def get(self, request, *args, **kwargs):
-
         try:
             seller = request.user
             products = seller.products.all()
@@ -277,5 +284,205 @@ class CategoryDistribution(APIView):
             logger.error(f"Error while getting Category distribution: {e}")
             return error_response(
                 message="An error occurred while getting Category distribution",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class CustomersOverview(APIView):
+    """Provide customer metrics for a vendor: new today, active (within N days), lost (>N days), and growth chart."""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            days = int(request.query_params.get("days", 90))
+            chart_days = int(request.query_params.get("chart_days", 30))
+            if days < 0 or chart_days <= 0:
+                return error_response(
+                    message="Invalid query parameters for days or chart_days",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            cutoff = timezone.now() - timedelta(days=days)
+
+            # Aggregate per buyer their first and last purchase with this seller
+            buyers = (
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
+                .values("order__buyer")
+                .annotate(
+                    first_purchase=Min("order__created_at"),
+                    last_purchase=Max("order__created_at"),
+                )
+            )
+
+            # New customers today
+            today = timezone.now().date()
+            new_today_count = buyers.filter(first_purchase__date=today).count()
+
+            # Active customers (bought within `days`)
+            active_count = buyers.filter(last_purchase__gte=cutoff).count()
+
+            # Lost customers (last purchase before cutoff)
+            lost_qs = buyers.filter(last_purchase__lt=cutoff)
+            lost_count = lost_qs.count()
+
+            # Growth chart: new customers per day for chart_days
+            chart = []
+            for i in range(chart_days - 1, -1, -1):
+                d = (timezone.now() - timedelta(days=i)).date()
+                count = buyers.filter(first_purchase__date=d).count()
+                chart.append({"date": d.isoformat(), "new_customers": count})
+
+            return success_response(
+                message="Customer overview",
+                data={
+                    "new_customers_today": new_today_count,
+                    "active_customers_count": active_count,
+                    "lost_customers_count": lost_count,
+                    "growth_chart": chart,
+                },
+            )
+        except Exception as e:
+            logger.exception(f"Error generating customer overview: {e}")
+            return error_response(
+                message="Error generating customer overview",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class LostCustomersExport(APIView):
+    """Export lost customers (no purchase in `days`) as CSV."""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            days = int(request.query_params.get("days", 90))
+            if days < 0:
+                return error_response(
+                    message="Invalid number of days. Days can't be negative",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            cutoff = timezone.now() - timedelta(days=days)
+
+            buyers = (
+                OrderItem.objects.filter(
+                    product__seller=seller, order__payments__payment_status="paid"
+                )
+                .values("order__buyer")
+                .annotate(last_purchase=Max("order__created_at"))
+            )
+
+            lost_ids = [
+                b["order__buyer"] for b in buyers.filter(last_purchase__lt=cutoff)
+            ]
+
+            # Fetch user data
+            from apps.userAuth.models import CustomUser
+
+            users = CustomUser.objects.filter(id__in=lost_ids).select_related(
+                "user_profile"
+            )
+
+            # Map last_purchase by user id
+            last_map = {
+                b["order__buyer"]: b["last_purchase"]
+                for b in buyers.filter(last_purchase__lt=cutoff)
+            }
+
+            # Build CSV bytes using helper
+            csv_bytes = build_lost_customers_csv(users, last_map)
+            filename = f"reports/lost_customers_{seller.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}.csv"
+            try:
+                STORAGE.s3_client.put_object(
+                    Bucket=STORAGE.bucket_name,
+                    Key=filename,
+                    Body=csv_bytes,
+                    ContentType="text/csv",
+                )
+                file_url = STORAGE.get_file_url(filename)
+                return success_response(
+                    message="Lost customers CSV uploaded",
+                    data={"url": file_url, "filename": filename},
+                )
+            except Exception as e:
+                logger.exception(f"Error uploading lost customers CSV to S3: {e}")
+                return error_response(
+                    message="Error uploading CSV to storage",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        except Exception as e:
+            logger.exception(f"Error exporting lost customers: {e}")
+            return error_response(
+                message="Error exporting lost customers",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VendorSalesReport(APIView):
+    """Seller-scoped product & sales report: totals, top/bottom performers, and trend charts."""
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            trend = request.query_params.get("trend", "daily").lower()
+            days = int(request.query_params.get("days", 30))
+            include_profit = request.query_params.get(
+                "include_profit", "false"
+            ).lower() in ("1", "true", "yes")
+
+            if days <= 0:
+                return error_response(
+                    message="`days` must be a positive integer",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            totals_clean, products_with_metrics = vendor_aggregates_and_products(
+                seller, include_profit=include_profit
+            )
+
+            total_orders = totals_clean.get("orders")
+            total_qty_all = totals_clean.get("quantity_sold")
+            total_revenue_all = totals_clean.get("revenue")
+
+            # compute total_profit_all from per-product metrics when include_profit
+            total_profit_all = 0.0
+            if include_profit:
+                for p in products_with_metrics:
+                    if p.get("profit") is not None:
+                        total_profit_all += float(p.get("profit"))
+
+            top5 = sorted(
+                products_with_metrics, key=lambda x: x["total_sold"], reverse=True
+            )[:5]
+            bottom5 = sorted(products_with_metrics, key=lambda x: x["total_sold"])[:5]
+
+            trend_data = vendor_trend_data(seller, days=days, trend=trend)
+
+            return success_response(
+                message="Vendor sales report",
+                data={
+                    "totals": {
+                        "orders": total_orders,
+                        "quantity_sold": int(total_qty_all),
+                        "revenue": float(total_revenue_all),
+                        "profit": float(total_profit_all) if include_profit else None,
+                    },
+                    "top_5": top5,
+                    "bottom_5": bottom5,
+                    "trend": trend_data,
+                },
+            )
+        except Exception as e:
+            logger.exception(f"Error generating vendor sales report: {e}")
+            return error_response(
+                message="Error generating vendor sales report",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

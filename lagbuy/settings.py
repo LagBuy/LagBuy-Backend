@@ -166,6 +166,12 @@ PAYSTACK_BASE_URL = "https://api.paystack.co"
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_TEST_SECRET_KEY")
 IP_WHITELIST = ["52.31.139.75", "52.49.173.169", "52.214.14.220"]
 
+# Automatic payout thresholds (wallet-driven daily payouts)
+# Minimum wallet balance eligible for an automatic payout (default: 1000.00 NGN)
+DAILY_PAYOUT_MIN = env.float("DAILY_PAYOUT_MIN", default=5000.00)
+# Maximum amount to payout in a single automatic payout (default: 100000.00 NGN)
+DAILY_PAYOUT_MAX = env.float("DAILY_PAYOUT_MAX", default=100000.00)
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
