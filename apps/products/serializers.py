@@ -86,6 +86,9 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_vendor_id(self, obj):
         return str(obj.seller.id) if obj.seller else None
 
+    def get_seller(self, obj):
+        return obj.get_seller_name()
+
 
 class MinimalProductSerializer(serializers.ModelSerializer):
     """
@@ -93,7 +96,7 @@ class MinimalProductSerializer(serializers.ModelSerializer):
     Includes only essential fields for cart display, including seller and first image.
     """
 
-    seller = serializers.StringRelatedField()
+    seller = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     vendor_id = serializers.SerializerMethodField(read_only=True)
 
@@ -110,13 +113,4 @@ class MinimalProductSerializer(serializers.ModelSerializer):
         return str(obj.seller.id) if obj.seller else None
 
     def get_seller(self, obj):
-        """Return seller's store/business name if available, else fall back to user's email."""
-        seller = obj.seller
-        if not seller:
-            return None
-        # Prefer vendor profile business name when present
-        vendor_profile = getattr(seller, "vendor_profile", None)
-        if vendor_profile and vendor_profile.business_name:
-            return vendor_profile.business_name
-        # Fallback to string representation (email/username)
-        return str(seller)
+        return obj.get_seller_name()

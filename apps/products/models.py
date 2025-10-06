@@ -56,6 +56,25 @@ class Product(models.Model):
         """Return the available stock after reserved/locked quantity."""
         return max(0, self.stock_quantity - (self.locked_quantity or 0))
 
+    def get_seller_name(self):
+        """Return a human-friendly seller name for this product.
+
+        Preference order:
+        - vendor_profile.business_name
+        - user_profile.first_name
+        - str(self.seller) (fallback, typically email/username)
+        """
+        seller = self.seller
+        if not seller:
+            return None
+        vendor_profile = getattr(seller, "vendor_profile", None)
+        if vendor_profile and vendor_profile.business_name:
+            return vendor_profile.business_name
+        user_profile = getattr(seller, "user_profile", None)
+        if user_profile and getattr(user_profile, "first_name", None):
+            return user_profile.first_name
+        return str(seller)
+
 
 class ProductImage(models.Model):
     """
