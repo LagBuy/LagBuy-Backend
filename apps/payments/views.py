@@ -15,12 +15,10 @@ from rest_framework.views import APIView
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
-from .models import Payment, PaymentStatus, PayoutRequest
-from .serializers import (
-    InitializeTransactionSerializer,
-    PriorityWithdrawalSerializer,
-    VerifyPaymentSerializer,
-)
+from .models import Escrow, EscrowStatus, Payment, PaymentStatus, PayoutRequest
+from .serializers import (InitializeTransactionSerializer,
+                          PriorityWithdrawalSerializer,
+                          VerifyPaymentSerializer)
 from .services import payment_service
 from .utils import distribute_payment_to_vendors
 
@@ -110,17 +108,21 @@ class VerifyPaymentView(APIView):
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
-                # Credit vendor wallets for this order once
+                # Create an escrow record to hold funds until release
                 try:
-                    if (
-                        not transaction.wallet_credited
-                        and transaction.order is not None
-                    ):
-                        distribute_payment_to_vendors(transaction.order)
-                        transaction.wallet_credited = True
-                        transaction.save(update_fields=["wallet_credited"])
+                    if transaction.order is not None:
+                        # create escrow if not exists
+                        Escrow.objects.get_or_create(
+                            payment=transaction,
+                            order=transaction.order,
+                            defaults={
+                                "amount": transaction.amount,
+                                "currency": transaction.currency,
+                                "status": EscrowStatus.HELD,
+                            },
+                        )
                 except Exception as e:
-                    logger.error(f"Error crediting vendor wallets: {e}", exc_info=True)
+                    logger.error(f"Error creating escrow record: {e}", exc_info=True)
                 # remove items with the order products from user's cart
                 user = request.user
                 order = transaction.order
@@ -215,12 +217,23 @@ class WebhookView(APIView):
                 if payment.payment_status != PaymentStatus.PAID:
                     payment.payment_status = PaymentStatus.PAID
                     payment.save(update_fields=["payment_status"])
-                    # Credit vendor wallets for this payment if not done
+                    # Create an escrow record to hold funds until release
                     try:
-                        if not payment.wallet_credited and payment.order is not None:
-                            distribute_payment_to_vendors(payment.order)
-                            payment.wallet_credited = True
-                            payment.save(update_fields=["wallet_credited"])
+                        if payment.order is not None:
+                            Escrow.objects.get_or_create(
+                                payment=payment,
+                                order=payment.order,
+                                defaults={
+                                    "amount": payment.amount,
+                                    "currency": payment.currency,
+                                    "status": EscrowStatus.HELD,
+                                },
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Error creating escrow record in webhook: {e}",
+                            exc_info=True,
+                        )
                     except Exception as e:
                         logger.error(
                             f"Error crediting vendor wallets in webhook: {e}",
@@ -304,3 +317,88 @@ class PriorityWithdrawalView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class EscrowReleaseView(APIView):
+    """Admin endpoint to release an escrowed payment to vendors.
+
+    POST body: { "escrow_id": "uuid" }
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        # Minimal permission check -- assume staff can release escrow
+        if not request.user.is_staff:
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = VerifyPaymentSerializer(data=request.data)
+        # reuse simple serializer for a single field 'reference' isn't ideal, create local handling
+        escrow_id = request.data.get("escrow_id")
+        if not escrow_id:
+            return Response(
+                {"detail": "escrow_id required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            escrow = Escrow.objects.get(id=escrow_id)
+            if escrow.status != EscrowStatus.HELD:
+                return Response(
+                    {"detail": "Escrow not held."}, status=status.HTTP_400_BAD_REQUEST
+                )
+            result = escrow.release()
+            return Response(
+                {"status": True, "detail": "Escrow released.", "credits": result},
+                status=status.HTTP_200_OK,
+            )
+        except Escrow.DoesNotExist:
+            return Response(
+                {"detail": "Escrow not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error releasing escrow: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to release escrow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class EscrowRefundView(APIView):
+    """Admin endpoint to mark and process a refund for an escrow.
+
+    POST body: { "escrow_id": "uuid" }
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        escrow_id = request.data.get("escrow_id")
+        if not escrow_id:
+            return Response(
+                {"detail": "escrow_id required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            escrow = Escrow.objects.get(id=escrow_id)
+            if escrow.status != EscrowStatus.HELD:
+                return Response(
+                    {"detail": "Escrow cannot be refunded."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            escrow.refund()
+            # Note: actual payment gateway refund should be implemented separately
+            return Response(
+                {"status": True, "detail": "Escrow marked refunded."},
+                status=status.HTTP_200_OK,
+            )
+        except Escrow.DoesNotExist:
+            return Response(
+                {"detail": "Escrow not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error refunding escrow: {e}", exc_info=True)
+            return Response(
+                {"detail": "Unable to refund escrow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

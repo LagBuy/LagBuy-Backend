@@ -1,6 +1,6 @@
 import uuid
 
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.orders.models import Order
@@ -97,3 +97,78 @@ class PayoutRequest(models.Model):
 
     def __str__(self):
         return f"Payout Request of N{self.amount} by {self.vendor.user_profile.first_name} [{self.status}]"
+
+
+class EscrowStatus(models.TextChoices):
+    HELD = "held", "Held"
+    RELEASED = "released", "Released"
+    REFUNDED = "refunded", "Refunded"
+
+
+class Escrow(models.Model):
+    """Represents funds held in escrow for an order until release or refund.
+
+    Business rules implemented here are intentionally minimal:
+    - An Escrow is created when a Payment is successfully verified.
+    - Funds remain HELD until explicitly released, at which point vendor wallets are
+      credited via the existing distribute_payment_to_vendors utility.
+    - Refunds are handled locally by marking the escrow refunded; integrating
+      with the payment gateway for automated refunds should be added separately.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.OneToOneField(
+        Payment, on_delete=models.CASCADE, related_name="escrow", null=True, blank=True
+    )
+    order = models.OneToOneField(
+        Order, on_delete=models.CASCADE, related_name="escrow"
+    )
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=5, default="NGN")
+    status = models.CharField(
+        max_length=20, choices=EscrowStatus.choices, default=EscrowStatus.HELD
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    released_at = models.DateTimeField(null=True, blank=True)
+    refunded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Escrow"
+        verbose_name_plural = "Escrows"
+
+    def __str__(self):
+        return f"Escrow[{self.id}] for Order {self.order_id} ({self.status})"
+
+    def release(self):
+        """Release escrowed funds to vendors using the existing distributor.
+
+        Returns the mapping of vendor credits on success.
+        """
+        if self.status != EscrowStatus.HELD:
+            raise ValueError("Cannot release an escrow that is not held.")
+
+        from .utils import distribute_payment_to_vendors
+
+        with transaction.atomic():
+            result = distribute_payment_to_vendors(self.order)
+            # mark payment as wallet_credited if attached
+            if self.payment:
+                self.payment.wallet_credited = True
+                self.payment.save(update_fields=["wallet_credited"])
+            self.status = EscrowStatus.RELEASED
+            self.released_at = timezone.now()
+            self.save(update_fields=["status", "released_at"])
+        return result
+
+    def refund(self):
+        """Mark escrow as refunded locally.
+
+        Note: This method does not call the payment gateway. Implement gateway
+        integration if automatic refunds should be issued from the platform.
+        """
+        if self.status != EscrowStatus.HELD:
+            raise ValueError("Cannot refund an escrow that is not held.")
+        with transaction.atomic():
+            self.status = EscrowStatus.REFUNDED
+            self.refunded_at = timezone.now()
+            self.save(update_fields=["status", "refunded_at"])
