@@ -19,8 +19,7 @@ class VendorDashboardTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = CustomUser.objects.create_user(
-            email="test@user.com",
-            password="testpassword"
+            email="test@user.com", password="testpassword"
         )
         cls.userProfile = UsersProfile.objects.create(
             user=cls.user,
@@ -29,15 +28,13 @@ class VendorDashboardTest(TestCase):
             phone_number="0909222002",
         )
         cls.seller = CustomUser.objects.create_user(
-            email="test@seller.com",
-            password="testpassword"
+            email="test@seller.com", password="testpassword"
         )
         cls.seller2 = CustomUser.objects.create_user(
-            email="test2@seller.com",
-            password="testpassword"
+            email="test2@seller.com", password="testpassword"
         )
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role = Role.objects.create(name="user")
+        cls.vendor_role = Role.objects.create(name="vendor")
         cls.user.roles.add(cls.user_role)
         cls.seller.roles.add(cls.user_role)
         cls.seller.roles.add(cls.vendor_role)
@@ -72,9 +69,7 @@ class VendorDashboardTest(TestCase):
         cls.product2.categories.add(cls.category2)
         cls.product3.categories.add(cls.category2)
 
-        cls.order = Order.objects.create(
-            buyer=cls.user, delivery_address="123 Test St"
-        )
+        cls.order = Order.objects.create(buyer=cls.user, delivery_address="123 Test St")
         cls.order_item = OrderItem.objects.create(
             order=cls.order, product=cls.product, quantity=2
         )
@@ -116,7 +111,7 @@ class VendorDashboardTest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.client.force_authenticate(user=self.seller)
-    
+
     def test_vendor_product_list(self):
         """Test the vendor product list view"""
         url = reverse_lazy("vendor-products")
@@ -127,10 +122,10 @@ class VendorDashboardTest(TestCase):
         product_names = [product["name"] for product in data]
         self.assertIn("Test Product", product_names)
         self.assertIn("Another Product", product_names)
-    
+
     def test_total_sale(self):
         """Test vendor total sale view. Ensures the unpaid order is not added
-           Ensure it only includes products owned by the logged in user
+        Ensure it only includes products owned by the logged in user
         """
         url = reverse_lazy("total-sale")
         response = self.client.get(url)
@@ -152,7 +147,7 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["total_product"], 2)
-    
+
     def test_new_customers(self):
         """Test the number of new unique customers a vendor had in the past 30 days"""
         url = reverse_lazy("new-customers")
@@ -160,8 +155,8 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["new_customers_count"], 1)
-        self.assertEqual(data['new_customers'][0]['first_name'], 'Buyer')
-    
+        self.assertEqual(data["new_customers"][0]["first_name"], "Buyer")
+
     def test_new_customers_in_90_days(self):
         """Test the number of new unique customers a vendor had in the past 30 days"""
         url = reverse_lazy("new-customers")
@@ -169,8 +164,8 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["new_customers_count"], 1)
-        self.assertEqual(data['new_customers'][0]['first_name'], 'Buyer')
-    
+        self.assertEqual(data["new_customers"][0]["first_name"], "Buyer")
+
     def test_sale_per_month(self):
         """Test the total sale per month view.
         Returns the total sale for each month for one year.
@@ -188,7 +183,7 @@ class VendorDashboardTest(TestCase):
 
         self.assertEqual(data[key], 300.0)
         self.assertEqual(data[key2], 0)
-    
+
     def test_low_stock_count(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
@@ -197,20 +192,20 @@ class VendorDashboardTest(TestCase):
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 1)
         self.assertEqual(data["low_stock_products"][0]["name"], "Another Product")
-    
+
     def test_low_stock_count_less_than_20(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
-        response = self.client.get(url, { "lt": 20 })
+        response = self.client.get(url, {"lt": 20})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 2)
         self.assertEqual(data["low_stock_products"][0]["name"], "Another Product")
-    
+
     def test_low_stock_count_with_negative_value(self):
         """Test low stock count view"""
         url = reverse_lazy("low-stock-count")
-        response = self.client.get(url, { "lt": -5 })
+        response = self.client.get(url, {"lt": -5})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertEqual(data["low_stock_count"], 0)
@@ -224,3 +219,56 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(data["First Category"], 50.0)
         self.assertEqual(data["Second Category"], 50.0)
 
+    def test_vendor_analytics_merged_endpoint(self):
+        """Test the combined vendor analytics endpoint returns expected values."""
+        url = reverse_lazy("vendor-analytics")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data["data"]
+        print(data, "respsonse data from vendor_analytics")
+
+        # core numbers that must match existing separate endpoints
+        self.assertIn("total_sales", data)
+        self.assertEqual(data["total_sales"], 300.0)  # same as test_total_sale
+
+        self.assertIn("total_products", data)
+        self.assertEqual(data["total_products"], 2)  # same as test_vendor_total_product
+
+        self.assertIn("new_customers_count", data)
+        self.assertEqual(data["new_customers_count"], 1)  # same as test_new_customers
+
+        # sales_per_month should be 13 entries and current month key contains 300.0
+        self.assertIn("sales_per_month", data)
+        self.assertEqual(len(data["sales_per_month"]), 13)
+        current_month_key = timezone.now().strftime("%m-%Y")
+        self.assertEqual(data["sales_per_month"][current_month_key], 300.0)
+
+        # low stock & category distribution
+        self.assertIn("low_stock_count", data)
+        self.assertEqual(data["low_stock_count"], 1)
+
+        self.assertIn("category_distribution", data)
+        self.assertEqual(data["category_distribution"]["First Category"], 50.0)
+        self.assertEqual(data["category_distribution"]["Second Category"], 50.0)
+
+
+# class VendorAnalyticsTests(APITestCase):
+#     def setUp(self):
+#         self.vendor = CustomUser.objects.create_user(
+#             email="vendor@test.com", password="pass123"
+#         )
+#         # assume vendor_profile is auto-created by signal
+#         self.client.force_authenticate(user=self.vendor)
+#         self.url = reverse_lazy("vendor-analytics")
+
+#     def test_unauthorized_user_cannot_access(self):
+#         self.client.force_authenticate(user=None)
+#         response = self.client.get(self.url)
+#         self.assertEqual(response.status_code, 401)
+
+#     def test_vendor_can_access_analytics(self):
+#         response = self.client.get(self.url)
+#         print(response.data)
+#         self.assertEqual(response.status_code, 200)
+#         self.assertIn("total_sales", response.data)

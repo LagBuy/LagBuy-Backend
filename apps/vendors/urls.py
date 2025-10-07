@@ -6,7 +6,7 @@ from .views import (TotalSale,
                     SalesPerMonth,
                     LowStock,
                     NewCustomers,
-                    CategoryDistribution,
+                    CategoryDistribution, VendorAnalyticsView,
                     VendorProductView)
 
 
@@ -40,4 +40,5 @@ urlpatterns = [
     path("lowstockcount/", LowStock.as_view(), name="low-stock-count"),
     path("newcustomers/", NewCustomers.as_view(), name="new-customers"),
     path("categorydistribution/", CategoryDistribution.as_view(), name="category-distribution"),
+    path("vendor-analytics/", VendorAnalyticsView.as_view(), name="vendor-analytics"),
 ]

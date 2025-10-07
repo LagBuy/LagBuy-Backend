@@ -13,6 +13,9 @@ from apps.orders.models import OrderItem
 from apps.userAuth.permissions import IsASeller
 from apps.products.serializers import ProductSerializer
 from common.utils.responses import error_response, success_response
+from common.utils.vendor_helper_functions import get_vendor_analytics
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +282,48 @@ class CategoryDistribution(APIView):
                 message="An error occurred while getting Category distribution",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class VendorAnalyticsView(APIView):
+    """
+    Vendor Analytics Dashboard Endpoint.
+    Returns key performance metrics for the authenticated vendor.
+    """
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    @method_decorator(cache_page(60 * 5))  # cache results for 5 minutes
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            print(seller, "seller")
+            analytics = get_vendor_analytics(seller)
+            return success_response(message="Vendor analytics", data=analytics)
+        except PermissionDenied as e:
+            return error_response(message=e.detail, status_code=403)
+        except Exception as e:
+            logger.error(f"Error while getting vendor analytics: {e}")
+            return error_response(
+                message="An error occurred while getting vendor analytics",
+                status_code=500,
+            )
+
+
+# class VendorAnalyticsView(APIView):
+
+
+#     permission_classes = [IsAuthenticated]
+
+#     # @method_decorator(cache_page(60 * 5))  # Cache for 5 minutes
+#     def get(self, request):
+#         user = request.user
+
+#         if not hasattr(user, "vendor_profile"):
+#             return error_response(
+#                 message="Only vendors can access analytics",
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#             )
+
+#         analytics_data = get_vendor_analytics(user)
+#         serializer = VendorAnalyticsSerializer(analytics_data)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
