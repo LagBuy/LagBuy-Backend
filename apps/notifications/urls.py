@@ -13,5 +13,5 @@ NotificationMarkReadView = extend_schema_view(
 
 urlpatterns = [
     path("", NotificationListView.as_view(), name="notifications-list"),
-    path("<int:pk>/read/", NotificationMarkReadView.as_view(), name="notification-mark-read"),
+    path("<uuid:pk>/read/", NotificationMarkReadView.as_view(), name="notification-mark-read"),
 ]
