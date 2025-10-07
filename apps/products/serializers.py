@@ -35,7 +35,7 @@ class ProductSerializer(serializers.ModelSerializer):
     - Returns category names instead of IDs.
     """
 
-    seller = serializers.StringRelatedField()
+    seller = serializers.SerializerMethodField()
     categories = serializers.SlugRelatedField(
         many=True, slug_field="name", queryset=Category.objects.all()
     )
@@ -46,12 +46,14 @@ class ProductSerializer(serializers.ModelSerializer):
         required=False,
     )
     shop_location = serializers.SerializerMethodField()
+    vendor_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
         fields = [
             "id",
             "seller",
+            "vendor_id",
             "name",
             "description",
             "price",
@@ -75,7 +77,17 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_shop_location(self, obj):
         """get vendor shop location"""
-        return obj.seller.vendor_profile.short_address if hasattr(obj.seller, 'vendor_profile') else None
+        return (
+            obj.seller.vendor_profile.short_address
+            if hasattr(obj.seller, "vendor_profile")
+            else None
+        )
+
+    def get_vendor_id(self, obj):
+        return str(obj.seller.id) if obj.seller else None
+
+    def get_seller(self, obj):
+        return obj.get_seller_name()
 
 
 class MinimalProductSerializer(serializers.ModelSerializer):
@@ -84,14 +96,21 @@ class MinimalProductSerializer(serializers.ModelSerializer):
     Includes only essential fields for cart display, including seller and first image.
     """
 
-    seller = serializers.StringRelatedField()
+    seller = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
+    vendor_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
-        fields = ["id", "name", "price", "seller", "image"]
-        read_only_fields = ["id", "name", "price", "seller", "image"]
+        fields = ["id", "name", "price", "seller", "image", "vendor_id"]
+        read_only_fields = ["id", "name", "price", "seller", "image", "vendor_id"]
 
     def get_image(self, obj):
         image = obj.images.first()
         return image.image_url if image else None
+
+    def get_vendor_id(self, obj):
+        return str(obj.seller.id) if obj.seller else None
+
+    def get_seller(self, obj):
+        return obj.get_seller_name()

@@ -2,10 +2,13 @@ from django.urls import path
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .views import (
+    EscrowRefundView,
+    EscrowReleaseView,
     InitializeTransactionView,
+    PriorityWithdrawalView,
     VerifyPaymentView,
     WebhookView,
-    PriorityWithdrawalView,
+    ResolveBankAccountView,
 )
 
 InitializeTransactionView = extend_schema_view(
@@ -17,6 +20,20 @@ VerifyPaymentView = extend_schema_view(
 WebhookView = extend_schema_view(
     post=extend_schema(tags=["Payments"], summary="Handle payment gateway webhooks")
 )(WebhookView)
+
+ResolveBankAccountView = extend_schema_view(
+    post=extend_schema(
+        tags=["Payments"], summary="Resolve bank account number to account name"
+    )
+)(ResolveBankAccountView)
+
+EscrowReleaseView = extend_schema_view(
+    post=extend_schema(tags=["Payments"], summary="Release escrow to vendors")
+)(EscrowReleaseView)
+
+EscrowRefundView = extend_schema_view(
+    post=extend_schema(tags=["Payments"], summary="Mark escrow as refunded")
+)(EscrowRefundView)
 
 urlpatterns = [
     path(
@@ -30,5 +47,12 @@ urlpatterns = [
         "priority-withdraw/",
         PriorityWithdrawalView.as_view(),
         name="priority_withdraw",
+    ),
+    path("escrow/release/", EscrowReleaseView.as_view(), name="escrow_release"),
+    path("escrow/refund/", EscrowRefundView.as_view(), name="escrow_refund"),
+    path(
+        "resolve-account/",
+        ResolveBankAccountView.as_view(),
+        name="resolve_bank_account",
     ),
 ]

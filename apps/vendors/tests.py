@@ -1,15 +1,15 @@
+from dateutil.relativedelta import relativedelta
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
-from django.utils import timezone
-from dateutil.relativedelta import relativedelta
 
-from apps.userAuth.models import CustomUser, Role
-from apps.profiles.models import UsersProfile
 from apps.orders.models import Order, OrderItem
-from apps.products.models import Product, Category
 from apps.payments.models import Payment, PaymentStatus
+from apps.products.models import Category, Product
+from apps.profiles.models import UsersProfile
+from apps.userAuth.models import CustomUser, Role
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -252,23 +252,41 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(data["category_distribution"]["First Category"], 50.0)
         self.assertEqual(data["category_distribution"]["Second Category"], 50.0)
 
+    def test_vendor_sales_report(self):
+        """Test the vendor sales report endpoint returns correct totals and lists"""
+        url = reverse_lazy("vendor-sales-report")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.data.get("data")
+        self.assertIsNotNone(payload)
+        totals = payload.get("totals")
+        # orders containing this seller's products: order and order2
+        self.assertEqual(totals.get("orders"), 2)
+        self.assertEqual(int(totals.get("quantity_sold")), 4)
+        self.assertEqual(float(totals.get("revenue")), 300.0)
 
-# class VendorAnalyticsTests(APITestCase):
-#     def setUp(self):
-#         self.vendor = CustomUser.objects.create_user(
-#             email="vendor@test.com", password="pass123"
-#         )
-#         # assume vendor_profile is auto-created by signal
-#         self.client.force_authenticate(user=self.vendor)
-#         self.url = reverse_lazy("vendor-analytics")
+        # top_5 and bottom_5 should be present
+        self.assertIn("top_5", payload)
+        self.assertIn("bottom_5", payload)
+        self.assertTrue(len(payload.get("top_5", [])) >= 1)
 
-#     def test_unauthorized_user_cannot_access(self):
-#         self.client.force_authenticate(user=None)
-#         response = self.client.get(self.url)
-#         self.assertEqual(response.status_code, 401)
+    def test_lost_customers_export_uploads_csv(self):
+        """Ensure lost customers export builds CSV and uploads to storage (mocked)."""
+        url = reverse_lazy("lost-customers-export")
+        from unittest.mock import patch
 
-#     def test_vendor_can_access_analytics(self):
-#         response = self.client.get(self.url)
-#         print(response.data)
-#         self.assertEqual(response.status_code, 200)
-#         self.assertIn("total_sales", response.data)
+        # Patch the STORAGE client used in the view to avoid a network call
+        with (
+            patch("apps.vendors.views.STORAGE.s3_client.put_object") as mock_put,
+            patch(
+                "apps.vendors.views.STORAGE.get_file_url",
+                return_value="https://example.com/reports/lost.csv",
+            ) as mock_get_url,
+        ):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            data = response.data.get("data")
+            # Should return url and filename even if list is empty
+            self.assertIn("url", data)
+            self.assertIn("filename", data)
+            mock_put.assert_called()

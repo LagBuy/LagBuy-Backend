@@ -118,6 +118,7 @@ class OrderItem(models.Model):
     ready_for_pickup = models.BooleanField(default=False)
     picked_up = models.BooleanField(default=False)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    stock_locked = models.BooleanField(default=False)
 
     # Relationships
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)

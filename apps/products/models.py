@@ -34,6 +34,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     verified = models.BooleanField(default=False)
     stock_quantity = models.PositiveIntegerField()
+    locked_quantity = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     seller = models.ForeignKey(
@@ -49,6 +50,30 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} by {self.seller}"
+
+    @property
+    def available_stock(self):
+        """Return the available stock after reserved/locked quantity."""
+        return max(0, self.stock_quantity - (self.locked_quantity or 0))
+
+    def get_seller_name(self):
+        """Return a human-friendly seller name for this product.
+
+        Preference order:
+        - vendor_profile.business_name
+        - user_profile.first_name
+        - str(self.seller) (fallback, typically email/username)
+        """
+        seller = self.seller
+        if not seller:
+            return None
+        vendor_profile = getattr(seller, "vendor_profile", None)
+        if vendor_profile and vendor_profile.business_name:
+            return vendor_profile.business_name
+        user_profile = getattr(seller, "user_profile", None)
+        if user_profile and getattr(user_profile, "first_name", None):
+            return user_profile.first_name
+        return str(seller)
 
 
 class ProductImage(models.Model):
