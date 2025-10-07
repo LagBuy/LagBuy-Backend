@@ -20,6 +20,8 @@ urlpatterns = [
     path("api/v1/vendors/", include("apps.vendors.urls"), name="analytic"),
     path("api/v1/riders/", include("apps.riders.urls"), name="riders"),
     path("api/v1/profiles/", include("apps.profiles.urls"), name="profiles"),
+    path("api/v1/notifications/", include("apps.notifications.urls"), name="notifications"),
+
 
     # password reset
     path(
