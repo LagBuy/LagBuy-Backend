@@ -12,6 +12,7 @@ from .views import (
     TotalSale,
     VendorProductView,
     VendorSalesReport,
+    VendorAnalyticsView,
 )
 
 TotalSale = extend_schema_view(
@@ -53,6 +54,12 @@ urlpatterns = [
     path("salespermonth/", SalesPerMonth.as_view(), name="total-sale-per-month"),
     path("lowstockcount/", LowStock.as_view(), name="low-stock-count"),
     path("newcustomers/", NewCustomers.as_view(), name="new-customers"),
+    path(
+        "categorydistribution/",
+        CategoryDistribution.as_view(),
+        name="category-distribution",
+    ),
+    path("vendor-analytics/", VendorAnalyticsView.as_view(), name="vendor-analytics"),
     path("customers-overview/", CustomersOverview.as_view(), name="customers-overview"),
     path(
         "lost-customers-export/",

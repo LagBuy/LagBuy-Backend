@@ -14,11 +14,14 @@ from apps.products.serializers import ProductSerializer
 from apps.userAuth.permissions import IsASeller
 from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 from .utils import (
     build_lost_customers_csv,
     vendor_aggregates_and_products,
     vendor_trend_data,
+    get_vendor_analytics,
 )
 
 logger = logging.getLogger(__name__)
@@ -285,6 +288,31 @@ class CategoryDistribution(APIView):
             return error_response(
                 message="An error occurred while getting Category distribution",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VendorAnalyticsView(APIView):
+    """
+    Vendor Analytics Dashboard Endpoint.
+    Returns key performance metrics for the authenticated vendor.
+    """
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    @method_decorator(cache_page(60 * 5))  # cache results for 5 minutes
+    def get(self, request, *args, **kwargs):
+        try:
+            seller = request.user
+            print(seller, "seller")
+            analytics = get_vendor_analytics(seller)
+            return success_response(message="Vendor analytics", data=analytics)
+        except PermissionDenied as e:
+            return error_response(message=e.detail, status_code=403)
+        except Exception as e:
+            logger.error(f"Error while getting vendor analytics: {e}")
+            return error_response(
+                message="An error occurred while getting vendor analytics",
+                status_code=500,
             )
 
 

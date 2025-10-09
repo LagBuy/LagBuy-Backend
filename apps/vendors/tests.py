@@ -219,6 +219,39 @@ class VendorDashboardTest(TestCase):
         self.assertEqual(data["First Category"], 50.0)
         self.assertEqual(data["Second Category"], 50.0)
 
+    def test_vendor_analytics_merged_endpoint(self):
+        """Test the combined vendor analytics endpoint returns expected values."""
+        url = reverse_lazy("vendor-analytics")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data["data"]
+        print(data, "respsonse data from vendor_analytics")
+
+        # core numbers that must match existing separate endpoints
+        self.assertIn("total_sales", data)
+        self.assertEqual(data["total_sales"], 300.0)  # same as test_total_sale
+
+        self.assertIn("total_products", data)
+        self.assertEqual(data["total_products"], 2)  # same as test_vendor_total_product
+
+        self.assertIn("new_customers_count", data)
+        self.assertEqual(data["new_customers_count"], 1)  # same as test_new_customers
+
+        # sales_per_month should be 13 entries and current month key contains 300.0
+        self.assertIn("sales_per_month", data)
+        self.assertEqual(len(data["sales_per_month"]), 13)
+        current_month_key = timezone.now().strftime("%m-%Y")
+        self.assertEqual(data["sales_per_month"][current_month_key], 300.0)
+
+        # low stock & category distribution
+        self.assertIn("low_stock_count", data)
+        self.assertEqual(data["low_stock_count"], 1)
+
+        self.assertIn("category_distribution", data)
+        self.assertEqual(data["category_distribution"]["First Category"], 50.0)
+        self.assertEqual(data["category_distribution"]["Second Category"], 50.0)
+
     def test_vendor_sales_report(self):
         """Test the vendor sales report endpoint returns correct totals and lists"""
         url = reverse_lazy("vendor-sales-report")
@@ -243,12 +276,13 @@ class VendorDashboardTest(TestCase):
         from unittest.mock import patch
 
         # Patch the STORAGE client used in the view to avoid a network call
-        with patch(
-            "apps.vendors.views.STORAGE.s3_client.put_object"
-        ) as mock_put, patch(
-            "apps.vendors.views.STORAGE.get_file_url",
-            return_value="https://example.com/reports/lost.csv",
-        ) as mock_get_url:
+        with (
+            patch("apps.vendors.views.STORAGE.s3_client.put_object") as mock_put,
+            patch(
+                "apps.vendors.views.STORAGE.get_file_url",
+                return_value="https://example.com/reports/lost.csv",
+            ) as mock_get_url,
+        ):
             response = self.client.get(url)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             data = response.data.get("data")
