@@ -17,6 +17,11 @@ class CreateRefundSerializer(serializers.Serializer):
 class PriorityWithdrawalSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     currency = serializers.CharField(max_length=5, required=False, default="NGN")
+    
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be greater than zero.")
+        return value
 
 
 class EscrowSerializer(serializers.Serializer):
@@ -45,7 +50,7 @@ class PayoutRequestSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user
         # Get vendor wallet balance (depends where it's stored)
-        wallet = user.vendor_profile.wallet  
+        wallet = user.vendor_wallet  
 
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero.")
@@ -53,3 +58,24 @@ class PayoutRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Insufficient wallet balance.")
         return value
     
+    def create(self, validated_data):
+        request = self.context.get("request")
+        user = request.user
+        wallet = user.vendor_wallet  
+
+        amount = validated_data["amount"]
+        is_partial = amount < wallet.balance
+        remaining = wallet.balance - amount
+
+        # Deduct funds from wallet
+        wallet.balance = remaining
+        wallet.save(update_fields=["balance"])
+
+        payout = PayoutRequest.objects.create(
+            vendor=user,
+            is_partial=is_partial,
+            remaining_balance=remaining,
+            **validated_data
+        )
+
+        return payout
