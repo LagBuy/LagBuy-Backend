@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+from decimal import Decimal
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -15,12 +16,16 @@ from rest_framework.views import APIView
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 
+
+
+
 from .models import Escrow, EscrowStatus, Payment, PaymentStatus, PayoutRequest
 from .serializers import (
     InitializeTransactionSerializer,
     PriorityWithdrawalSerializer,
     VerifyPaymentSerializer,
     ResolveBankAccountSerializer,
+    PayoutRequestSerializer
 )
 from .services import payment_service
 from .utils import distribute_payment_to_vendors
@@ -275,25 +280,74 @@ class PriorityWithdrawalView(APIView):
     http_method_names = ["post"]
 
     # flat fee for priority withdrawals (defaults to 500.00 NGN)
-    FEE_FLAT = float(getattr(settings, "PRIORITY_WITHDRAWAL_FEE_FLAT", 500.00))
+    FEE_FLAT = Decimal(getattr(settings, "PRIORITY_WITHDRAWAL_FEE_FLAT", 500.00))
+    MIN_WITHDRAWAL_AMOUNT = Decimal(getattr(settings, "DAILY_PAYOUT_MIN", 5000.00))
 
     def post(self, request):
+        print("Request data:", request.data)
         serializer = PriorityWithdrawalSerializer(data=request.data)
+        print("Serializer valid:", serializer.is_valid())
+        print("Serializer errors:", serializer.errors)
+        print("Validated data:", serializer.validated_data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         amount = serializer.validated_data["amount"]
         currency = serializer.validated_data.get("currency", "NGN")
-
-        # calculate fee (flat) and net amount
-        fee = float(self.FEE_FLAT)
-        net_amount = float(amount) - fee
-
-        if net_amount <= 0:
+        
+        if amount is None:
             return Response(
-                {"detail": "Amount must be greater than the priority withdrawal fee."},
+                {"detail": "Amount is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        
+        # Ensure amount is Decimal
+        if not isinstance(amount, Decimal):
+            amount = Decimal(str(amount))
+        
+        wallet = request.user.vendor_wallet
+        balance = wallet.balance
+        
+        print(f"DEBUG: amount={amount}, type={type(amount)}, balance={balance}, type={type(balance)}")
+        
+        if amount <= 0:
+            return Response(
+                {"detail": "Withdrawal amount must be greater than zero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if amount < self.MIN_WITHDRAWAL_AMOUNT:
+            return Response(
+                {
+                    "detail": f"Minimum withdrawal amount is {self.MIN_WITHDRAWAL_AMOUNT} NGN."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        if amount > balance:
+            return Response(
+                {"detail": "Insufficient wallet balance."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+           
+        # detect partial withdrawal 
+        is_partial = amount < balance
+        # apply flat fee
+        fee = self.FEE_FLAT
+        total_deduction = amount + fee
+
+        if total_deduction > balance:
+            return Response(
+                {"detail": "Insufficient balance to cover amount and fee."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        net_amount = amount - fee
+        remaining = balance - total_deduction
+
+        # update wallet
+        wallet.balance = remaining
+        wallet.save(update_fields=["balance"])
 
         payout = PayoutRequest.objects.create(
             amount=amount,
@@ -301,8 +355,10 @@ class PriorityWithdrawalView(APIView):
             vendor=request.user,
             status="pending",
             is_priority=True,
+            is_partial=is_partial,
             priority_fee=fee,
             net_amount=net_amount,
+            remaining_balance=remaining,
         )
 
         return Response(
@@ -313,8 +369,10 @@ class PriorityWithdrawalView(APIView):
                     "id": str(payout.id),
                     "amount": float(amount),
                     "currency": currency,
-                    "fee": fee,
-                    "net_amount": net_amount,
+                    "fee": float(fee),
+                    "is_partial": is_partial,
+                    "net_amount": float(net_amount),
+                    "remaining_balance": float(remaining),
                     "status": payout.status,
                 },
             },

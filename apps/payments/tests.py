@@ -15,6 +15,7 @@ from apps.payments.models import Payment, PaymentStatus, PayoutRequest
 from apps.products.models import Product
 from apps.profiles.models import UsersProfile, VendorsProfile
 from apps.userAuth.models import CustomUser
+from apps.vendors.models import VendorWallet
 
 User = get_user_model()
 
@@ -325,6 +326,24 @@ class PriorityWithdrawalEndpointTestCase(APITestCase):
         self.user = CustomUser.objects.create_user(
             email="vendor2@example.com", password="testpass123"
         )
+        # create vendor profile
+        self.vendor_profile = VendorsProfile.objects.create(
+            user=self.user,
+            business_name="Test Vendor",
+            business_address="123 Test Street",
+            business_location_city="Lagos",
+            business_location_state="Lagos",
+            is_verified=True,
+        )
+        
+        VendorWallet.objects.filter(vendor=self.user).delete()
+
+        # create wallet and attach it to the vendor
+        self.wallet = VendorWallet.objects.create(
+            vendor=self.user,
+            balance=Decimal("10000.00"),
+            currency="NGN",
+        )
         self.client.force_authenticate(user=self.user)
         self.url = reverse("priority_withdraw")
 
@@ -334,8 +353,8 @@ class PriorityWithdrawalEndpointTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_priority_withdraw_success_creates_request(self):
-        data = {"amount": "2000.00", "currency": "NGN"}
-        response = self.client.post(self.url, data)
+        data = {"amount": "6000.00", "currency": "NGN"}
+        response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # verify PayoutRequest created
@@ -343,3 +362,35 @@ class PriorityWithdrawalEndpointTestCase(APITestCase):
         self.assertTrue(pr.is_priority)
         self.assertIsNotNone(pr.priority_fee)
         self.assertIsNotNone(pr.net_amount)
+    
+    def test_partial_withdrawal_flags_and_balance_update(self):
+        """Should mark payout as partial if withdrawal < wallet balance."""
+        data = {"amount": "7000.00", "currency": "NGN"}
+        response = self.client.post(self.url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        payload = response.data["request"]
+
+        # verify response structure
+        self.assertTrue(payload["is_partial"])
+        self.assertEqual(payload["currency"], "NGN")
+        self.assertEqual(payload["amount"], 7000.0)
+
+        # verify DB record
+        pr = PayoutRequest.objects.get(id=payload["id"])
+        self.assertTrue(pr.is_partial)
+        self.assertTrue(pr.is_priority)
+        self.assertEqual(pr.priority_fee, Decimal("500.00"))  # matches flat fee default
+        self.assertEqual(pr.net_amount, Decimal("6500.00"))
+
+        # verify wallet balance was deducted correctly
+        self.wallet.refresh_from_db()
+        expected_remaining = Decimal("10000.00") - Decimal("7000.00") - Decimal("500.00")
+        self.assertEqual(self.wallet.balance, expected_remaining)
+
+    def test_debug_serializer(self):
+        data = {"amount": "6000.00", "currency": "NGN"}
+        response = self.client.post(self.url, data, format="json")
+        print("Status:", response.status_code)
+        print("Response data:", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

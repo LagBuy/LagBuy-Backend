@@ -74,6 +74,11 @@ class PayoutRequest(models.Model):
     priority_fee = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )
+    is_partial = models.BooleanField(default=False)
+    remaining_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text="Vendor's remaining wallet balance after payout request."
+    )
     # Net amount after fee (for record keeping)
     net_amount = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
