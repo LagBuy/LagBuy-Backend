@@ -13,6 +13,7 @@ from .views import (
     VendorProductView,
     VendorSalesReport,
     VendorAnalyticsView,
+    VendorWalletMetrics
 )
 
 TotalSale = extend_schema_view(
@@ -60,6 +61,7 @@ urlpatterns = [
         name="category-distribution",
     ),
     path("vendor-analytics/", VendorAnalyticsView.as_view(), name="vendor-analytics"),
+    path("wallet-summary/", VendorWalletMetrics.as_view(), name="vendor-wallet-metrics"),
     path("customers-overview/", CustomersOverview.as_view(), name="customers-overview"),
     path(
         "lost-customers-export/",
