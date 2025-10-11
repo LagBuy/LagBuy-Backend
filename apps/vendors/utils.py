@@ -257,7 +257,6 @@ def build_lost_customers_csv(users, last_map):
     return csv_buffer.getvalue().encode("utf-8")
 
 
-# vendors/services/analytics_service.py
 
 
 def get_vendor_analytics(seller_user):

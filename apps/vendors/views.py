@@ -1,8 +1,9 @@
+from decimal import Decimal
 import logging
 from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, Max, Min, OuterRef, Subquery
+from django.db.models import F, Max, Min, OuterRef, Subquery, Sum
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -10,8 +11,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.orders.models import OrderItem
+from apps.payments.models import Payment
 from apps.products.serializers import ProductSerializer
 from apps.userAuth.permissions import IsASeller
+from apps.vendors.models import VendorWithdrawal
 from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
 from django.utils.decorators import method_decorator
@@ -512,5 +515,61 @@ class VendorSalesReport(APIView):
             logger.exception(f"Error generating vendor sales report: {e}")
             return error_response(
                 message="Error generating vendor sales report",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VendorWalletMetrics(APIView):
+    """
+    Return vendor wallet analytics: total earned, pending,
+    available, withdrawn
+    """
+
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def get(self, request):
+        try:
+            vendor = request.user
+
+            # total earned (paid payments only)
+            total_earned = (
+                Payment.objects.filter(
+                    order__items__product__seller=vendor,
+                    payment_status="paid",
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
+            # pending payments
+            pending = (
+                Payment.objects.filter(
+                    order__items__product__seller=vendor,
+                    payment_status="pending",
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
+            # available balance
+            wallet = getattr(vendor, "vendor_wallet", None)
+            available = wallet.balance if wallet else Decimal("0.00")
+
+            # withdrawn
+            withdrawn = VendorWithdrawal.objects.filter(vendor=vendor).aggregate(
+                total=Sum("amount")
+            )["total"] or Decimal("0.00")
+
+            return success_response(
+                message="Vendor Wallet Summary",
+                data={
+                    "total_earned": total_earned,
+                    "pending": pending,
+                    "available": available,
+                    "withdrawn": withdrawn,
+                },
+            )
+        except Exception as e:
+            logger.error(f"Error while fetching wallet summary: {e}")
+            return error_response(
+                message=f"An error occurred while fetching wallet summary {e}",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

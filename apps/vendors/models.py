@@ -63,3 +63,18 @@ class VendorWallet(models.Model):
         self.__class__.objects.filter(pk=self.pk).update(balance=F("balance") - amount)
         self.refresh_from_db(fields=["balance"])
         return self.balance
+
+
+class VendorWithdrawal(models.Model):
+    """
+    Tracks all withdrawals, amounts, and status. 
+    Makes the system robust and auditable
+    """
+    vendor = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", "Pending"), ("completed", "Completed")],
+        default="pending",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)

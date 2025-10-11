@@ -1,3 +1,4 @@
+from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
@@ -10,6 +11,8 @@ from apps.payments.models import Payment, PaymentStatus
 from apps.products.models import Category, Product
 from apps.profiles.models import UsersProfile
 from apps.userAuth.models import CustomUser, Role
+from apps.vendors.models import VendorWallet
+from django.utils.crypto import get_random_string
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -290,3 +293,91 @@ class VendorDashboardTest(TestCase):
             self.assertIn("url", data)
             self.assertIn("filename", data)
             mock_put.assert_called()
+
+    # def test_vendor_wallet_summary(self):
+    #     url = reverse_lazy("vendor-wallet-metrics")
+    #     response = self.client.get(url)
+    #     print(response.data, "error form vendor-wllet")
+    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    #     data = response.data["data"]
+    #     self.assertIn("total_earned", data)
+    #     self.assertIn("pending", data)
+    #     self.assertIn("available", data)
+    #     # self.assertIn("withdrawn", data)
+
+
+class VendorWalletSummaryTest(TestCase):
+    """Test the vendor wallet summary endpoint"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.vendor = CustomUser.objects.create_user(
+            email="vendor@example.com", password="testpass"
+        )
+        cls.role = Role.objects.create(name="vendor")
+        cls.vendor.roles.add(cls.role)
+
+        # Create vendor wallet
+        cls.wallet = VendorWallet.objects.create(
+            vendor=cls.vendor, balance=Decimal("1000.00")
+        )
+
+        # Create buyer
+        cls.buyer = CustomUser.objects.create_user(
+            email="buyer@example.com", password="testpass"
+        )
+
+        # Create product
+        cls.product = Product.objects.create(
+            name="Product 1",
+            price=Decimal("500.00"),
+            stock_quantity=5,
+            seller=cls.vendor,
+        )
+
+        # Create order and payment
+        cls.order = Order.objects.create(
+            buyer=cls.buyer, delivery_address="Test Street"
+        )
+        OrderItem.objects.create(order=cls.order, product=cls.product, quantity=2)
+
+        # Paid payment
+        cls.paid_payment = Payment.objects.create(
+            user=cls.buyer,
+            order=cls.order,
+            amount=Decimal("1000.00"),
+            payment_status=PaymentStatus.PAID,
+            ref=f"TEST-{get_random_string(8)}",
+        )
+
+        # Pending payment
+        cls.pending_order = Order.objects.create(
+            buyer=cls.buyer, delivery_address="Another Street"
+        )
+        OrderItem.objects.create(
+            order=cls.pending_order, product=cls.product, quantity=1
+        )
+        cls.pending_payment = Payment.objects.create(
+            user=cls.buyer,
+            order=cls.pending_order,
+            amount=Decimal("500.00"),
+            payment_status=PaymentStatus.PENDING,
+            ref=f"TEST-{get_random_string(8)}",
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.vendor)
+
+    def test_wallet_summary(self):
+        """Ensure wallet summary returns correct data"""
+        url = reverse_lazy("vendor-wallet-metrics")
+        response = self.client.get(url)
+        print(response.data, "error form vendor-wllet")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+
+        self.assertEqual(float(data["total_earned"]), 1000.00)
+        self.assertEqual(float(data["pending"]), 500.00)
+        self.assertEqual(float(data["available"]), 1000.00)
+        self.assertEqual(float(data["withdrawn"]), 0.00)
