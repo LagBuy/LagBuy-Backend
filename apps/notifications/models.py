@@ -20,6 +20,7 @@ class Notification(models.Model):
             ("withdrawal", "Withdrawal"),
             ("subscription", "Subscription"),
             ("password_change", "Password Change"),
+            ("export_job", "Export Job"),
         ]
     )
     is_read = models.BooleanField(default=False)

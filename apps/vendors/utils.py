@@ -1,17 +1,32 @@
 import csv
 from datetime import timedelta
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import Dict, List, Tuple
 
 from django.core.exceptions import FieldError
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value, Subquery, OuterRef
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Q,
+    Sum,
+    Value,
+    Subquery,
+    OuterRef,
+)
 from django.db.models.functions import Coalesce, TruncDate, TruncWeek
 from django.utils import timezone
+from django.core.files.base import ContentFile
 
 from apps.orders.models import OrderItem, Order
+from apps.payments.models import Payment
 from apps.products.models import Product
 
 from dateutil.relativedelta import relativedelta
+
+from common.services.storage import STORAGE
+
+from reportlab.pdfgen import canvas
 
 
 def vendor_aggregates_and_products(
@@ -177,9 +192,7 @@ def vendor_trend_data(seller, days: int = 30, trend: str = "daily") -> List[dict
                             output_field=DecimalField(max_digits=18, decimal_places=2),
                         ),
                     )
-                )[
-                    "r"
-                ]
+                )["r"]
                 or 0
             )
             trend_data.append(
@@ -218,9 +231,7 @@ def vendor_trend_data(seller, days: int = 30, trend: str = "daily") -> List[dict
                             output_field=DecimalField(max_digits=18, decimal_places=2),
                         ),
                     )
-                )[
-                    "r"
-                ]
+                )["r"]
                 or 0
             )
             trend_data.append(
@@ -255,8 +266,6 @@ def build_lost_customers_csv(users, last_map):
             ]
         )
     return csv_buffer.getvalue().encode("utf-8")
-
-
 
 
 def get_vendor_analytics(seller_user):
@@ -427,3 +436,130 @@ def get_vendor_analytics(seller_user):
         "revenue_by_category": revenue_by_category,
         "conversion_rate": conversion_rate,
     }
+
+
+def _payments_queryset_for_vendor(vendor_user, params):
+    """
+    Return Payment queryset filtered by params (start_date/end_date/etc).
+    """
+    qs = Payment.objects.filter(order__items__product__seller=vendor_user)
+    start = params.get("start_date")
+    end = params.get("end_date")
+    if start:
+        qs = qs.filter(created_at__gte=start)
+    if end:
+        qs = qs.filter(created_at__lte=end)
+    return qs.order_by("created_at")
+
+
+def generate_csv_bytes_for_payments(payments_qs):
+    """Return bytes of CSV file for Payment queryset"""
+    output = StringIO()
+    writer = csv.writer(output)
+    # header
+    writer.writerow(
+        [
+            "payment_ref",
+            "order_id",
+            "amount",
+            "currency",
+            "status",
+            "created_at",
+            "buyer_email",
+        ]
+    )
+    for p in payments_qs:
+        writer.writerow(
+            [
+                getattr(p, "ref", ""),
+                getattr(p.order, "id", ""),
+                str(p.amount),
+                getattr(p, "currency", ""),
+                getattr(p, "payment_status", ""),
+                p.created_at.isoformat() if getattr(p, "created_at", None) else "",
+                p.user.email if getattr(p, "user", None) else "",
+            ]
+        )
+    data = output.getvalue().encode("utf-8")
+    output.close()
+    return data
+
+
+def generate_pdf_bytes_for_payments(payments_qs):
+    """Return bytes (PDF) for Payment queryset."""
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer)
+    y = 800
+    p.setFont("Helvetica", 12)
+    p.drawString(50, y, "Vendor Transactions Report")
+    y -= 30
+    for pay in payments_qs:
+        line = f"Ref: {getattr(pay, 'ref', '')} | Order: {getattr(pay.order, 'id', '')} | Amount: {pay.amount} | Status: {pay.payment_status} | Date: {pay.created_at}"
+        p.drawString(50, y, line[:120])  # simple truncation
+        y -= 15
+        if y < 50:
+            p.showPage()
+            y = 800
+    p.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
+def upload_bytes_to_storage(bytes_data: bytes, filename: str, export_format: str):
+    """
+    Upload bytes to storage and return url.
+    """
+
+    try:
+        if export_format == "csv":
+            STORAGE.s3_client.put_object(
+                Bucket=STORAGE.bucket_name,
+                Key=filename,
+                Body=bytes_data,
+                ContentType="text/csv",
+            )
+            url = STORAGE.get_file_url(filename)
+            return url
+        elif export_format == "pdf":
+            STORAGE.s3_client.put_object(
+                Bucket=STORAGE.bucket_name,
+                Key=filename,
+                Body=bytes_data,
+                ContentType="text/pdf",
+            )
+            url = STORAGE.get_file_url(filename)
+            return url
+        else:
+            raise ValueError("unsupported export format")
+
+    except Exception as e:
+        print(e, "error")
+        raise Exception("Error uploading to storage")
+
+
+def create_export_file_for_vendor(
+    vendor_user, export_format, params, payments_limit=None
+):
+    """
+    Generate file bytes and upload to storage, return (path url).
+    If payments_limit is provided, payments_qs can be sliced for sampling.
+    """
+    payments_qs = _payments_queryset_for_vendor(vendor_user, params)
+    if payments_limit:
+        payments_qs = payments_qs[:payments_limit]
+    if export_format == "csv":
+        data_bytes = generate_csv_bytes_for_payments(payments_qs)
+        timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+        filename = f"exports/{vendor_user.email.replace('@', '_')}_transactions_{timestamp}.csv"
+        url = upload_bytes_to_storage(data_bytes, filename, "csv")
+        return filename, url
+
+    elif export_format == "pdf":
+        data_bytes = generate_pdf_bytes_for_payments(payments_qs)
+        timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+        filename = f"exports/{vendor_user.email.replace('@', '_')}_transactions_{timestamp}.pdf"
+        url = upload_bytes_to_storage(data_bytes, filename, "pdf")
+        return filename, url
+
+    else:
+        raise ValueError("unsupported export format")

@@ -1,4 +1,5 @@
 from decimal import Decimal
+import tempfile
 from dateutil.relativedelta import relativedelta
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
@@ -6,13 +7,18 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.notifications.models import Notification
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Payment, PaymentStatus
 from apps.products.models import Category, Product
 from apps.profiles.models import UsersProfile
 from apps.userAuth.models import CustomUser, Role
-from apps.vendors.models import VendorWallet
+from apps.vendors.models import ExportJob, VendorWallet
 from django.utils.crypto import get_random_string
+from django.core.management import call_command
+
+# create a temp dir at import-time so override_settings can use it
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="test_media_")
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -294,17 +300,6 @@ class VendorDashboardTest(TestCase):
             self.assertIn("filename", data)
             mock_put.assert_called()
 
-    # def test_vendor_wallet_summary(self):
-    #     url = reverse_lazy("vendor-wallet-metrics")
-    #     response = self.client.get(url)
-    #     print(response.data, "error form vendor-wllet")
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
-    #     data = response.data["data"]
-    #     self.assertIn("total_earned", data)
-    #     self.assertIn("pending", data)
-    #     self.assertIn("available", data)
-    #     # self.assertIn("withdrawn", data)
-
 
 class VendorWalletSummaryTest(TestCase):
     """Test the vendor wallet summary endpoint"""
@@ -381,3 +376,208 @@ class VendorWalletSummaryTest(TestCase):
         self.assertEqual(float(data["pending"]), 500.00)
         self.assertEqual(float(data["available"]), 1000.00)
         self.assertEqual(float(data["withdrawn"]), 0.00)
+
+
+class VendorExportTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.vendor = CustomUser.objects.create_user(
+            email="vendor@example.com", password="test"
+        )
+        role = Role.objects.create(name="vendor")
+        cls.vendor.roles.add(role)
+        VendorWallet.objects.create(vendor=cls.vendor, balance=Decimal("0.00"))
+
+        cls.buyer = CustomUser.objects.create_user(
+            email="buyer@example.com", password="test"
+        )
+        cls.product = Product.objects.create(
+            name="P", price=Decimal("100.00"), stock_quantity=10, seller=cls.vendor
+        )
+
+        # Create a few paid payments (small dataset)
+        for i in range(3):
+            order = Order.objects.create(buyer=cls.buyer, delivery_address=f"A{i}")
+            OrderItem.objects.create(order=order, product=cls.product, quantity=1)
+            Payment.objects.create(
+                user=cls.buyer,
+                order=order,
+                amount=Decimal("100.00"),
+                payment_status=PaymentStatus.PAID,
+                ref=f"test-ref-paid-{i}",
+            )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.vendor)
+
+    def test_small_export_generates_file_and_notifies(self):
+        """
+        Small dataset should be exported synchronously.
+        We patch:
+          - apps.vendors.utils.upload_bytes_to_storage (the storage and exporter helper)
+        so no network calls happen.
+        """
+        url = reverse_lazy("vendor-export")
+        fake_url = "https://example.com/exports/fake.csv"
+        # fake_path = "exports/fake.csv"
+
+        from unittest.mock import patch
+
+        # Patch the storage and export helper
+        with (
+            patch(
+                "apps.vendors.utils.upload_bytes_to_storage", return_value=fake_url
+            ) as mock_upload,
+        ):
+            response = self.client.post(
+                url,
+                {"export_format": "csv", "export_type": "transactions"},
+                format="json",
+            )
+
+        print(response.data, "data frm test_small")
+
+        # view returns 200 OK (synchronous small export)
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.data.get("data")
+        self.assertIn("url", payload, msg=f"Response missing url: {response.data}")
+        self.assertEqual(payload["url"], fake_url)
+
+        self.assertIn(
+            "filename", payload, msg=f"Response missing filename: {response.data}"
+        )
+
+        # No ExportJob should be created for small sync export
+        self.assertFalse(
+            ExportJob.objects.exists(),
+            "ExportJob exists but should not for small export",
+        )
+
+        # upload helper must have been called
+        mock_upload.assert_called_once()
+        self.assertTrue(mock_upload.called)
+
+        # Notification created
+        notices = Notification.objects.filter(
+            user=self.vendor, notification_type="export_job"
+        )
+        self.assertTrue(
+            notices.exists(), "No notification created for completed export"
+        )
+
+    def test_large_export_queues_job(self):
+        """
+        A large dataset (above VENDOR_EXPORT_QUEUE_THRESHOLD) should create an ExportJob
+        and create a queued notification.
+        """
+        from django.conf import settings
+
+        # get threshold from settings (it can be lowered via override_settings)
+        threshold = getattr(settings, "VENDOR_EXPORT_QUEUE_THRESHOLD", 50)
+
+        # create many records to exceed threshold
+        for i in range(threshold + 2):
+            order = Order.objects.create(buyer=self.buyer, delivery_address=f"big-{i}")
+            OrderItem.objects.create(order=order, product=self.product, quantity=1)
+            Payment.objects.create(
+                user=self.buyer,
+                order=order,
+                amount=Decimal("100.00"),
+                payment_status=PaymentStatus.PAID,
+                ref=f"big-ref-{i}",
+            )
+
+        url = reverse_lazy("vendor-export")
+        data = {"export_format": "csv"}
+
+        response = self.client.post(url, data, format="json")
+        print(response.data, "data frm test_large")
+
+        self.assertIn(response.status_code, (200, 202))
+
+        payload = response.data.get("data") or {}
+        # job_id should be returned
+        self.assertIn("job_id", payload, msg="Queued response did not return job_id")
+
+        job_id = payload.get("job_id")
+        self.assertTrue(
+            ExportJob.objects.filter(
+                id=job_id, user=self.vendor, status=ExportJob.STATUS_PENDING
+            ).exists()
+        )
+
+        # A notification should have been created telling user export is queued
+        notice = (
+            Notification.objects.filter(
+                user=self.vendor, notification_type="export_job"
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        self.assertIsNotNone(notice)
+        self.assertIn("queued", notice.title.lower() + notice.message.lower())
+
+        # job should be created
+        self.assertTrue(
+            ExportJob.objects.filter(
+                user=self.vendor, status=ExportJob.STATUS_PENDING
+            ).exists()
+        )
+
+    def test_processing_export_jobs_finishes_job_and_creates_notification(self):
+        """
+        Create a pending ExportJob, run management command, and assert:
+          - job becomes COMPLETED
+          - job.file is set
+          - a completion notification was created
+        Patch utils.upload_bytes_to_storage to avoid S3.
+        """
+
+        # create a pending job manually
+        job = ExportJob.objects.create(
+            user=self.vendor,
+            export_type="transactions",
+            export_format="csv",
+            params={},
+            status=ExportJob.STATUS_PENDING,
+        )
+
+        fake_url = "https://example.com/processed_fake.csv"
+
+        from unittest.mock import patch
+
+        # Patch upload helper used by the worker; worker calls create_export_file_for_vendor -> upload_bytes_to_storage
+        with (
+            patch(
+                "apps.vendors.utils.upload_bytes_to_storage", return_value=fake_url
+            ) as mock_upload,
+        ):
+            # Run management command that processes export jobs
+            call_command("process_export_jobs")
+
+        # refresh and re-fetch
+        job.refresh_from_db()
+        self.assertEqual(job.status, ExportJob.STATUS_COMPLETED)
+        self.assertIsNotNone(job.completed_at)
+        # file_name field should have been populated to the (fake) path
+        self.assertTrue(
+            bool(job.file_name), "Job file field not populated after processing"
+        )
+        # patched upload helper, ensure it was called
+        mock_upload.assert_called()
+
+        # A notification indicating "ready" or "download" should be created
+        notice = (
+            Notification.objects.filter(
+                user=self.vendor, notification_type="export_job"
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        self.assertIsNotNone(notice)
+        self.assertTrue(
+            "ready" in (notice.title + notice.message).lower()
+            or "download" in (notice.title + notice.message).lower()
+        )

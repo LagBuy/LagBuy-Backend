@@ -10,24 +10,31 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from apps.notifications.models import Notification
 from apps.orders.models import OrderItem
 from apps.payments.models import Payment
 from apps.products.serializers import ProductSerializer
 from apps.userAuth.permissions import IsASeller
-from apps.vendors.models import VendorWithdrawal
+from apps.vendors.models import ExportJob, VendorWithdrawal
 from common.services.storage import STORAGE
 from common.utils.responses import error_response, success_response
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.conf import settings
 
 from .utils import (
+    _payments_queryset_for_vendor,
     build_lost_customers_csv,
+    create_export_file_for_vendor,
     vendor_aggregates_and_products,
     vendor_trend_data,
     get_vendor_analytics,
 )
 
 logger = logging.getLogger(__name__)
+
+# threshold after which we queue job
+EXPORT_QUEUE_THRESHOLD = getattr(settings, "VENDOR_EXPORT_QUEUE_THRESHOLD", 40)
 
 
 class VendorProductView(APIView):
@@ -573,3 +580,70 @@ class VendorWalletMetrics(APIView):
                 message=f"An error occurred while fetching wallet summary {e}",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class VendorExportView(APIView):
+    permission_classes = [IsAuthenticated, IsASeller]
+
+    def post(self, request, *args, **kwargs):
+        """
+        Request an export. Body parameters:
+        - export_format: "csv" or "pdf"
+        - export_type: currently "transactions" (default)
+        - start_date, end_date (optional, ISO format)
+        """
+        user = request.user
+        export_format = request.data.get("export_format", "csv")
+        export_type = request.data.get("export_type", "transactions")
+        params = {
+            "start_date": request.data.get("start_date"),
+            "end_date": request.data.get("end_date"),
+        }
+
+        # determine dataset size
+        payments_qs = _payments_queryset_for_vendor(user, params)
+        count = payments_qs.count()
+
+        # small: generate synchronously
+        if count <= EXPORT_QUEUE_THRESHOLD:
+            try:
+                filename, url = create_export_file_for_vendor(
+                    user, export_format, params
+                )
+                # send notification
+                Notification.objects.create(
+                    user=user,
+                    title="Your export is ready",
+                    message=f"Your {export_format.upper()} export is ready. Download: {url}",
+                    notification_type="export_job",
+                )
+                return success_response(
+                    message="Export ready",
+                    data={"url": url, "filename": filename},
+                )
+
+            except Exception as e:
+                return error_response(
+                    message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        # large: create ExportJob to be processed later
+        job = ExportJob.objects.create(
+            user=user,
+            export_type=export_type,
+            export_format=export_format,
+            params=params,
+            status=ExportJob.STATUS_PENDING,
+        )
+        # notify user the export was queued
+        Notification.objects.create(
+            user=user,
+            title="Export queued",
+            message=f"Your export is queued and will be processed shortly. Job id: {job.id}",
+            notification_type="export_job",
+        )
+        return success_response(
+            message="Export queued",
+            data={"job_id": str(job.id)},
+            status_code=status.HTTP_202_ACCEPTED,
+        )
