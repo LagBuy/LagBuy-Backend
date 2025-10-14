@@ -3,6 +3,7 @@ import uuid
 
 from django.db import models
 from django.utils import timezone
+from django.db.models import JSONField
 
 from apps.userAuth.models import CustomUser
 
@@ -67,9 +68,10 @@ class VendorWallet(models.Model):
 
 class VendorWithdrawal(models.Model):
     """
-    Tracks all withdrawals, amounts, and status. 
+    Tracks all withdrawals, amounts, and status.
     Makes the system robust and auditable
     """
+
     vendor = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
     status = models.CharField(
@@ -78,3 +80,51 @@ class VendorWithdrawal(models.Model):
         default="pending",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ExportJob(models.Model):
+    """
+    Tracks jobs so background worker can process and
+    WE can expose job listing/history if needed.
+    """
+
+    FORMAT_CSV = "csv"
+    FORMAT_PDF = "pdf"
+    FORMAT_CHOICES = [(FORMAT_CSV, "CSV"), (FORMAT_PDF, "PDF")]
+
+    STATUS_PENDING = "pending"
+    STATUS_PROCESSING = "processing"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="export_jobs"
+    )
+    export_type = models.CharField(max_length=50, default="transactions")
+    export_format = models.CharField(
+        max_length=10, choices=FORMAT_CHOICES, default=FORMAT_CSV
+    )
+    params = JSONField(default=dict, blank=True)  # store filters like date range
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
+    file_name = models.TextField(null=True, blank=True)
+    file_url = models.URLField(null=True, blank=True)
+    error = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return (
+            f"ExportJob({self.id}) {self.user.email} {self.export_format} {self.status}"
+        )
