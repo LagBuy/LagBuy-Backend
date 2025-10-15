@@ -1,6 +1,8 @@
 from django.urls import path
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
+from apps.vendors.views_admin import AdminStatsView, AdminVendorActionView
+
 from .views import (
     CategoryDistribution,
     CustomersOverview,
@@ -78,4 +80,6 @@ urlpatterns = [
     ),
     path("sales-report/", VendorSalesReport.as_view(), name="vendor-sales-report"),
     path("exports/", VendorExportView.as_view(), name="vendor-export"),
+    path("stats/", AdminStatsView.as_view(), name="vendor-stats"),
+    path("action/<uuid:vendor_id>/", AdminVendorActionView.as_view(), name="vendor-action"),
 ]

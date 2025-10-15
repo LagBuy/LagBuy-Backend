@@ -65,6 +65,14 @@ class VendorsProfile(models.Model):
     bank_code = models.CharField(max_length=20, null=True, blank=True)
     account_number = models.CharField(max_length=20, null=True, blank=True)
 
+    is_suspended = models.BooleanField(default=False)
+    PLAN_CHOICES = [
+        ("basic", "Basic"),
+        ("premium", "Premium"),
+        ("enterprise", "Enterprise"),
+    ]
+    plan_type = models.CharField(max_length=50, choices=PLAN_CHOICES, default="basic")
+
     # Relationships
     user = models.OneToOneField(
         CustomUser, on_delete=models.CASCADE, related_name="vendor_profile"

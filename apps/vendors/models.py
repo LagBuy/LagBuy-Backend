@@ -128,3 +128,30 @@ class ExportJob(models.Model):
         return (
             f"ExportJob({self.id}) {self.user.email} {self.export_format} {self.status}"
         )
+
+
+# -- Audit log model --
+class AuditLog(models.Model):
+    """
+    Model to log sensitive actions as they are
+    carried out, suspending user, changing plans etc
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        CustomUser,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="audit_logs",
+    )
+    action = models.CharField(max_length=255)
+    target = models.CharField(max_length=255, null=True, blank=True)  # e.g. Vendor[id]
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        who = self.user.email if self.user else "system"
+        return f"{self.created_at.isoformat()} {who} - {self.action}"
