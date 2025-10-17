@@ -105,7 +105,7 @@ class AdminStatsView(APIView):
     Stats: total_vendors, total_orders, total_sales, total_products, total_customers (distinct)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
         user = request.user
@@ -128,28 +128,6 @@ class AdminStatsView(APIView):
                     "total_products": total_products,
                 }
                 return success_response(message="All Stats returned", data=data)
-
-            # vendor stats - restrict to vendor's data
-            if hasattr(user, "vendor_profile"):
-                vendor = user
-                total_sales = (
-                    Payment.objects.filter(
-                        order__items__product__seller=vendor, payment_status="paid"
-                    ).aggregate(total=Sum("amount"))["total"]
-                    or 0
-                )
-                total_orders = (
-                    Order.objects.filter(items__product__seller=vendor)
-                    .distinct()
-                    .count()
-                )
-                total_products = vendor.products.count()
-                data = {
-                    "total_sales": float(total_sales),
-                    "total_orders": total_orders,
-                    "total_products": total_products,
-                }
-                return success_response(message="Vendor Stats returned", data=data)
 
             return error_response("Unauthorized", status.HTTP_403_FORBIDDEN)
         except PermissionDenied as e:

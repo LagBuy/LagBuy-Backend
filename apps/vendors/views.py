@@ -11,9 +11,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.notifications.models import Notification
-from apps.orders.models import OrderItem
+from apps.orders.models import Order, OrderItem
 from apps.payments.models import Payment
+from apps.products.models import Product
 from apps.products.serializers import ProductSerializer
+from apps.profiles.models import VendorsProfile
 from apps.userAuth.permissions import IsASeller
 from apps.vendors.models import ExportJob, VendorWithdrawal
 from common.services.storage import STORAGE
@@ -647,3 +649,47 @@ class VendorExportView(APIView):
             data={"job_id": str(job.id)},
             status_code=status.HTTP_202_ACCEPTED,
         )
+
+
+class VendorStatsView(APIView):
+    """
+    Returns vendor-only stats.
+    Stats: total_vendors, total_orders, total_sales, total_products, total_customers (distinct)
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            # vendor stats - restrict to vendor's data
+            if hasattr(user, "vendor_profile"):
+                vendor = user
+                total_sales = (
+                    Payment.objects.filter(
+                        order__items__product__seller=vendor, payment_status="paid"
+                    ).aggregate(total=Sum("amount"))["total"]
+                    or 0
+                )
+                total_orders = (
+                    Order.objects.filter(items__product__seller=vendor)
+                    .distinct()
+                    .count()
+                )
+                total_products = vendor.products.count()
+                data = {
+                    "total_sales": float(total_sales),
+                    "total_orders": total_orders,
+                    "total_products": total_products,
+                }
+                return success_response(message="Vendor Stats returned", data=data)
+
+            return error_response("Unauthorized", status.HTTP_403_FORBIDDEN)
+        except PermissionDenied as e:
+            return error_response(message=e.detail, status_code=403)
+        except Exception as e:
+            logger.error(f"Error while getting stats: {e}")
+            return error_response(
+                message=f"An error occurred while getting stats {e}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
