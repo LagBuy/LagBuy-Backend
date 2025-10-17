@@ -43,7 +43,10 @@ class WebhookReceiverView(APIView):
         source = request.headers.get("X-Webhook-Source", "unknown")
         payload = request.data
         event_id = payload.get("event_id") or str(uuid.uuid4())
-
+        
+        if not event_id:
+            return Response({"error": "Missing event_id"}, status=status.HTTP_400_BAD_REQUEST)
+        
         event, created = WebhookEvent.objects.get_or_create(
             event_id=event_id,
             defaults={
@@ -61,24 +64,32 @@ class WebhookReceiverView(APIView):
         # Process logic (example: successful payment)
         try:
             event.last_attempt_at = timezone.now()
-            # Example: if this webhook confirms a successful payment
+            
+            # Require status field
+            if "status" not in payload:
+                raise ValueError("Missing required field: status")
+            
+            # Process successful payment
             if payload.get("status") == "success":
                 user_email = payload.get("customer_email")
                 amount = payload.get("amount")
+                
+                if not user_email:
+                    raise ValueError("Missing customer_email for successful payment")
 
-                # Optionally fetch user
+                # fetch user
                 from django.contrib.auth import get_user_model
                 User = get_user_model()
-                try:
-                    user = User.objects.get(email=user_email)
-                    create_notification(
-                        user,
-                        title="Payment Received",
-                        message=f"Your payment of ₦{amount} was successful.",
-                        notification_type="order",
-                    )
-                except User.DoesNotExist:
-                    pass
+                user = User.objects.filter(email=user_email).first()
+                if not user:
+                    raise Exception(f"No user found for email {user_email}")
+              
+                create_notification(
+                    title="Payment Successful",
+                    user=user,
+                    message=f"Your payment of ₦{amount} was successful.",
+                    notification_type="order",
+                )
 
             event.processed = True
             event.save()
