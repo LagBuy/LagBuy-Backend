@@ -6,9 +6,8 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0003_alter_notification_notification_type'),
-        ('notifications', '0003_webhookevent'),
+        ("notifications", "0003_alter_notification_notification_type"),
+        ("notifications", "0002_webhookevent"),
     ]
 
-    operations = [
-    ]
+    operations = []

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
+import uuid
 
 
 class Migration(migrations.Migration):
@@ -16,15 +17,41 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Notification',
+            name="Notification",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('message', models.TextField()),
-                ('notification_type', models.CharField(choices=[('order', 'Order'), ('withdrawal', 'Withdrawal'), ('subscription', 'Subscription'), ('password_change', 'Password Change')], max_length=50)),
-                ('is_read', models.BooleanField(default=False)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notifications', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("message", models.TextField()),
+                (
+                    "notification_type",
+                    models.CharField(
+                        choices=[
+                            ("order", "Order"),
+                            ("withdrawal", "Withdrawal"),
+                            ("subscription", "Subscription"),
+                            ("password_change", "Password Change"),
+                        ],
+                        max_length=50,
+                    ),
+                ),
+                ("is_read", models.BooleanField(default=False)),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notifications",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]
