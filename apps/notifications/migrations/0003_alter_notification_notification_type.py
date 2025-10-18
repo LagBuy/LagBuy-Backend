@@ -6,13 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0002_alter_notification_id'),
+        ("notifications", "0002_webhookevent"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='notification',
-            name='notification_type',
-            field=models.CharField(choices=[('order', 'Order'), ('withdrawal', 'Withdrawal'), ('subscription', 'Subscription'), ('password_change', 'Password Change'), ('export_job', 'Export Job')], max_length=50),
+            model_name="notification",
+            name="notification_type",
+            field=models.CharField(
+                choices=[
+                    ("order", "Order"),
+                    ("withdrawal", "Withdrawal"),
+                    ("subscription", "Subscription"),
+                    ("password_change", "Password Change"),
+                    ("export_job", "Export Job"),
+                ],
+                max_length=50,
+            ),
         ),
     ]
