@@ -5,6 +5,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from .views import APIStatusView
+from .views import ServerLogsView
 from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
 
 urlpatterns = [
@@ -36,6 +37,8 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
+
+    path('server-logs/', ServerLogsView.as_view(), name='server-logs'),
 ]
 
 if settings.DEBUG:

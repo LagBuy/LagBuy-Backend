@@ -1,8 +1,10 @@
+from django.db import IntegrityError
 from rest_framework import serializers
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 
 from .models import CustomUser, Role
+from common.utils.custom_exceptions import UserAlreadyExist
 from apps.userAuth.models import CustomUser
 from apps.profiles.models import UsersProfile, VendorsProfile, RidersProfile
 from apps.profiles.serializer import (UserProfileSerializer,
@@ -82,69 +84,74 @@ class CustomRegisterSerializer(RegisterSerializer):
         # the seller or rider profile do not already exist (i guess you 
         # can use the update serializer)
         
-        user = super().save(request)
-
-        for role_name in roles:
-            if role_name in ['user', 'vendor', 'rider']:
-                role, _ = Role.objects.get_or_create(name=role_name.lower())
-                user.roles.add(role)
-
         try:
-            UsersProfile.objects.create(
-                user=user,
-                first_name=self.validated_data.get('first_name', ''),
-                last_name=self.validated_data.get('last_name', ''),
-                phone_number=self.validated_data.get('phone_number', ''),
-                image=self.validated_data.get('image', None),
-                address=self.validated_data.get('address', None),
-                gender=self.validated_data.get('gender', ''),
-                dob=self.validated_data.get('dob'),
-                city=self.validated_data.get('city', ''),
-                state=self.validated_data.get('state', '')
-            )
-        except Exception as e:
-            user.delete()
+            user = super().save(request)
+
+            for role_name in roles:
+                if role_name in ['user', 'vendor', 'rider']:
+                    role, _ = Role.objects.get_or_create(name=role_name.lower())
+                    user.roles.add(role)
+
+            try:
+                UsersProfile.objects.create(
+                    user=user,
+                    first_name=self.validated_data.get('first_name', ''),
+                    last_name=self.validated_data.get('last_name', ''),
+                    phone_number=self.validated_data.get('phone_number', ''),
+                    image=self.validated_data.get('image', None),
+                    address=self.validated_data.get('address', None),
+                    gender=self.validated_data.get('gender', ''),
+                    dob=self.validated_data.get('dob'),
+                    city=self.validated_data.get('city', ''),
+                    state=self.validated_data.get('state', '')
+                )
+            except Exception as e:
+                user.delete()
+                raise e
+
+
+            if 'vendor' in roles:
+                try:
+                    VendorsProfile.objects.create(
+                        user=user,
+                        business_name=self.validated_data.get('business_name', ''),
+                        business_location_city=self.validated_data.get('business_location_city', ''),
+                        business_location_state=self.validated_data.get('business_location_state', '')
+                    )
+                except Exception as e:
+                    user.delete()
+                    raise e
+
+            if 'rider' in roles:
+                try:
+                    # use riders serializer for this to implement verification for bank, nin, etc
+                    RidersProfile.objects.create(
+                        user=user,
+                        phone_number2=self.validated_data.get('phone_number2', ''),
+                        nin=self.validated_data.get('nin', ''),
+                        next_of_kin=self.validated_data.get('next_of_kin', ''),
+                        nok_phonenumber=self.validated_data.get('nok_phonenumber', ''),
+                        motorcycle_type=self.validated_data.get('motorcycle_type', ''),
+                        motorcycle_brand=self.validated_data.get('motorcycle_brand', ''),
+                        plate_number=self.validated_data.get('plate_number', ''),
+                        guarantor1=self.validated_data.get('guarantor1', ''),
+                        guarantor1_number=self.validated_data.get('guarantor1_number', ''),
+                        guarantor2=self.validated_data.get('guarantor2', ''),
+                        guarantor2_number=self.validated_data.get('guarantor2_number', ''),
+                        bank_name=self.validated_data.get('bank_name', ''),
+                        account_number=self.validated_data.get('account_number', ''),
+                        account_name=self.validated_data.get('account_name', ''),
+                    )
+                except Exception as e:
+                    user.delete()
+                    raise e
+
+            return user
+        except IntegrityError as e:
+            # raise a custom exception if the user already exists
+            if str(e) == "UNIQUE constraint failed: userAuth_customuser.email":
+                raise UserAlreadyExist()
             raise e
-
-
-        if 'vendor' in roles:
-            try:
-                VendorsProfile.objects.create(
-                    user=user,
-                    business_name=self.validated_data.get('business_name', ''),
-                    business_location_city=self.validated_data.get('business_location_city', ''),
-                    business_location_state=self.validated_data.get('business_location_state', '')
-                )
-            except Exception as e:
-                user.delete()
-                raise e
-
-        if 'rider' in roles:
-            try:
-                # use riders serializer for this to implement verification for bank, nin, etc
-                RidersProfile.objects.create(
-                    user=user,
-                    phone_number2=self.validated_data.get('phone_number2', ''),
-                    nin=self.validated_data.get('nin', ''),
-                    next_of_kin=self.validated_data.get('next_of_kin', ''),
-                    nok_phonenumber=self.validated_data.get('nok_phonenumber', ''),
-                    motorcycle_type=self.validated_data.get('motorcycle_type', ''),
-                    motorcycle_brand=self.validated_data.get('motorcycle_brand', ''),
-                    plate_number=self.validated_data.get('plate_number', ''),
-                    guarantor1=self.validated_data.get('guarantor1', ''),
-                    guarantor1_number=self.validated_data.get('guarantor1_number', ''),
-                    guarantor2=self.validated_data.get('guarantor2', ''),
-                    guarantor2_number=self.validated_data.get('guarantor2_number', ''),
-                    bank_name=self.validated_data.get('bank_name', ''),
-                    account_number=self.validated_data.get('account_number', ''),
-                    account_name=self.validated_data.get('account_name', ''),
-                )
-            except Exception as e:
-                user.delete()
-                raise e
-
-        return user
-
 
 class CustomUserSerializer(serializers.ModelSerializer):
     """Custom user serializer class"""

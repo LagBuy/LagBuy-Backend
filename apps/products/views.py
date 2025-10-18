@@ -1,5 +1,6 @@
 import logging
 
+from django.http import Http404
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -39,82 +40,24 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def list(self, request, *args, **kwargs):
-        try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
-            return success_response(
-                serializer.data, "Categories retrieved successfully."
-            )
-        except Exception as e:
-            logger.error(f"Error retrieving categories: {e}")
-            return error_response(
-                "An error occurred while retrieving categories.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().list(request, *args, **kwargs)
+        return customize_response(response, "Categories retrieved successfully.")
 
     def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            return success_response(serializer.data, "Category retrieved successfully.")
-        except Exception as e:
-            logger.error(f"Error retrieving category: {e}")
-            return error_response(
-                "An error occurred while retrieving the category.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().retrieve(request, *args, **kwargs)
+        return customize_response(response, "Category retrieved successfully.")
 
     def create(self, request, *args, **kwargs):
-        try:
-            serializer = self.get_serializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return success_response(
-                    serializer.data,
-                    "Category created successfully.",
-                    status.HTTP_201_CREATED,
-                )
-            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error creating category: {e}")
-            return error_response(
-                "An error occurred while creating the category.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().create(request, *args, **kwargs)
+        return customize_response(response, "Category created successfully.")
 
     def update(self, request, *args, **kwargs):
-        try:
-            partial = kwargs.pop("partial", False)
-            instance = self.get_object()
-            serializer = self.get_serializer(
-                instance, data=request.data, partial=partial
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return success_response(
-                    serializer.data, "Category updated successfully."
-                )
-            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error updating category: {e}")
-            return error_response(
-                "An error occurred while updating the category.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().update(request, *args, **kwargs)
+        return customize_response(response, "Category updated successfully.")
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            instance.delete()
-            return success_response(
-                {}, "Category deleted successfully.", status.HTTP_204_NO_CONTENT
-            )
-        except Exception as e:
-            logger.error(f"Error deleting category: {e}")
-            return error_response(
-                "An error occurred while deleting the category.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().destroy(request, *args, **kwargs)
+        return customize_response(response, "Category deleted successfully.")
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -151,105 +94,35 @@ class ProductViewSet(viewsets.ModelViewSet):
         return self.queryset
 
     def list(self, request, *args, **kwargs):
-        try:
-            queryset = self.filter_queryset(self.get_queryset())
-            serializer = self.get_serializer(queryset, many=True)
-            return success_response(serializer.data, "Products retrieved successfully.")
-        except Exception as e:
-            logger.error(f"Error retrieving products: {e}")
-            return error_response(
-                "An error occurred while retrieving products.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().list(request, *args, **kwargs)
+        return customize_response(response, "Products retrieved successfully.")
 
     def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            if request.user.is_authenticated:
-                request.user.user_profile.viewed_products.add(instance)
-            return success_response(serializer.data, "Product retrieved successfully.")
-        except Exception as e:
-            logger.error(f"Error retrieving product: {e}")
-            return error_response(
-                "An error occurred while retrieving the product.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        if request.user.is_authenticated:
+            request.user.user_profile.viewed_products.add(instance)
+        response = Response(serializer.data)
+        return customize_response(response, "Product retrieved successfully.")
 
     def create(self, request, *args, **kwargs):
-        try:
-            serializer = self.get_serializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save(seller=request.user)
-                return success_response(
-                    serializer.data,
-                    "Product created successfully.",
-                    status.HTTP_201_CREATED,
-                )
-            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error creating product: {e}")
-            return error_response(
-                "An error occurred while creating the product.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().create(request, *args, **kwargs)
+        return customize_response(response, "Product created successfully.")
+    
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
 
     def update(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return success_response(
-                    serializer.data, "Product updated successfully."
-                )
-            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-        except PermissionDenied as e:
-            logger.warning(str(e))
-            return error_response(str(e), status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            logger.error(f"Error updating product: {e}")
-            return error_response(
-                "An error occurred while updating the product.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().update(request, *args, **kwargs)
+        return customize_response(response, "Product updated successfully.")
 
     def partial_update(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return success_response(
-                    serializer.data, "Product updated successfully."
-                )
-            return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-        except PermissionDenied as e:
-            logger.warning(str(e))
-            return error_response(str(e), status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            logger.error(f"Error updating product: {e}")
-            return error_response(
-                "An error occurred while updating the product.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().partial_update(request, *args, **kwargs)
+        return customize_response(response, "Product updated successfully.")
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            instance.delete()
-            return success_response(
-                {}, "Product deleted successfully.", status.HTTP_204_NO_CONTENT
-            )
-        except PermissionDenied as e:
-            logger.warning(str(e))
-            return error_response(str(e), status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            logger.error(f"Error deleting product: {e}")
-            return error_response(
-                "An error occurred while deleting the product.",
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        response = super().destroy(request, *args, **kwargs)
+        return customize_response(response, "Product deleted successfully.")
 
     @action(
         detail=True,
@@ -271,6 +144,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                     "Stock updated successfully",
                 )
             return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        except Product.DoesNotExist as e:
+            raise Http404
         except PermissionDenied as e:
             logger.warning(str(e))
             return error_response(str(e), status.HTTP_403_FORBIDDEN)
@@ -292,22 +167,26 @@ class ImageUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
-        uploaded_image = request.FILES.get("image")
-        if not uploaded_image:
-            return Response(
-                {"detail": "No image file provided."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        try:
+            uploaded_image = request.FILES.get("image")
+            if not uploaded_image:
+                return Response(
+                    {"detail": "No image file provided."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        file_url = STORAGE.upload_file(
-            uploaded_image, uploaded_image.name, uploaded_image.content_type
-        )
-        if file_url:
-            return Response({"url": file_url}, status=status.HTTP_201_CREATED)
-        return Response(
-            {"detail": "Failed to upload image."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+            file_url = STORAGE.upload_file(
+                uploaded_image, uploaded_image.name, uploaded_image.content_type
+            )
+            if file_url:
+                return Response({"url": file_url}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            raise e # allows for proper flagging and debugging
+
+            # return Response(
+            #     {"detail": "Failed to upload image."},
+            #     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            # )
 
 
 class ViewedProductsViewSet(viewsets.ReadOnlyModelViewSet):

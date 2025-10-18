@@ -24,6 +24,25 @@ ALLOWED_HOSTS = ["0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "userAuth.CustomUser"
 
+# Admin email configuration
+ADMINS = [
+    ("Admin", env.str("ADMIN_EMAIL", default="chinwezechisom@gmail.com")),
+    ("LagBuy Team", "lagbuy008@gmail.com"),
+]
+SERVER_EMAIL = env.str("SERVER_EMAIL", default="no-reply@lagbuy.com")
+SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@lagbuy.com")
+LOGIN_URL = env.str("LOGIN_URL", default="shop.lagbuy.com/login")
+
+# Email configuration
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend" # "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.hostinger.com"
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[LagBuy Team] "
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -116,7 +135,7 @@ ROOT_URLCONF = "lagbuy.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

@@ -1,0 +1,23 @@
+{{ site_name }} - Account Already Exists
+=====================================
+
+Hello {{ user_name }},
+
+We received a request to create a new account with your email address {{ user_email }}.
+
+GOOD NEWS! You already have an account with us.
+
+If you were trying to sign up:
+- You can simply log in using your existing credentials
+- If you've forgotten your password, you can reset it using the password recovery option
+
+FORGOT YOUR PASSWORD?
+Click the "Forgot Password" link on the login page to reset it securely.
+
+If you didn't attempt to create an account, please disregard this email. Your existing account remains secure.
+
+---
+Need Help?
+If you need assistance, please contact our support team at {{ support_email }}
+
+© 2025 {{ site_name }}. All rights reserved.
