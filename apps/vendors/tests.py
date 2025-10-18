@@ -11,9 +11,9 @@ from apps.notifications.models import Notification
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Payment, PaymentStatus
 from apps.products.models import Category, Product
-from apps.profiles.models import UsersProfile
+from apps.profiles.models import UsersProfile, VendorsProfile
 from apps.userAuth.models import CustomUser, Role
-from apps.vendors.models import ExportJob, VendorWallet
+from apps.vendors.models import AuditLog, ExportJob, VendorWallet
 from django.utils.crypto import get_random_string
 from django.core.management import call_command
 
@@ -581,3 +581,136 @@ class VendorExportTests(TestCase):
             "ready" in (notice.title + notice.message).lower()
             or "download" in (notice.title + notice.message).lower()
         )
+
+
+class AdminVendorControlsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # create roles
+        cls.vendor_role = Role.objects.create(name="vendor")
+        cls.user_role = Role.objects.create(name="user")
+
+        # admin user (Django staff/superuser)
+        cls.admin = CustomUser.objects.create_user(
+            email="admin@example.com", password="adminpass"
+        )
+        cls.admin.is_staff = True
+        cls.admin.is_superuser = True
+        cls.admin.save()
+
+        # vendor 1 (will have sales)
+        cls.vendor1 = CustomUser.objects.create_user(
+            email="seller1@example.com", password="vpass"
+        )
+        cls.vendor1.roles.add(cls.vendor_role)
+        cls.vp1 = VendorsProfile.objects.create(
+            user=cls.vendor1, business_name="Seller One"
+        )
+
+        # vendor 2 (no sales)
+        cls.vendor2 = CustomUser.objects.create_user(
+            email="seller2@example.com", password="vpass"
+        )
+        cls.vendor2.roles.add(cls.vendor_role)
+        cls.vp2 = VendorsProfile.objects.create(
+            user=cls.vendor2, business_name="Seller Two"
+        )
+
+        # buyer
+        cls.buyer = CustomUser.objects.create_user(
+            email="buyer@example.com", password="bpass"
+        )
+        cls.buyer.roles.add(cls.user_role)
+
+        # product by vendor1
+        cls.product = Product.objects.create(
+            name="Prod", price=Decimal("100.00"), stock_quantity=10, seller=cls.vendor1
+        )
+
+        # an order & paid payment for vendor1
+        cls.order = Order.objects.create(buyer=cls.buyer, delivery_address="Addr 1")
+        OrderItem.objects.create(order=cls.order, product=cls.product, quantity=2)
+        cls.payment = Payment.objects.create(
+            user=cls.buyer,
+            order=cls.order,
+            amount=Decimal("200.00"),
+            payment_status=PaymentStatus.PAID,
+            ref="pay1",
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_admin_can_view_global_stats(self):
+        # admin view
+        url = reverse_lazy("admin-stats")
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.data.get("data")
+
+        # global total vendors should include both vendors
+        self.assertIn("total_vendors", data)
+        self.assertGreaterEqual(data["total_vendors"], 2)
+        # self.client.force_authenticate(user=None)
+
+    def test_vendor_can_view_his_own_stats(self):
+        url = reverse_lazy("vendor-stats")
+
+        # vendor1 view - should only see own totals
+        self.client.force_authenticate(user=self.vendor1)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.data.get("data")
+
+        # vendor sees only their totals: total_vendors should be omitted
+        # We expect vendor to see "total_sales" and it should match vendor1's sales
+        self.assertIn("total_sales", data)
+
+    def test_only_admin_can_perform_vendor_actions(self):
+        url = reverse_lazy("admin-vendor-action", args=[str(self.vp2.id)])
+        # vendor attempt should fail
+        self.client.force_authenticate(user=self.vendor1)
+        response = self.client.post(url, {"action": "suspend"}, format="json")
+        print(response.data)
+        print(response)
+        self.assertEqual(response.status_code, 403)
+
+        # admin can suspend
+        self.client.force_authenticate(user=self.admin)
+        response2 = self.client.post(
+            url, {"action": "suspend", "reason": "policy"}, format="json"
+        )
+        self.assertEqual(response2.status_code, 200)
+        # vendor2 profile should be suspended
+        self.vp2.refresh_from_db()
+        self.assertTrue(self.vp2.is_suspended)
+
+        # audit log created
+        log = AuditLog.objects.filter(
+            action__icontains="suspend", target__icontains=str(self.vp2.id)
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.user, self.admin)
+        # notification created for vendor
+        notice = (
+            Notification.objects.filter(user=self.vp2.user)
+            .order_by("-created_at")
+            .first()
+        )
+        self.assertIsNotNone(notice)
+        self.assertIn("suspend", (notice.title + notice.message).lower())
+
+    def test_admin_can_change_plan_and_it_is_logged(self):
+        url = reverse_lazy("admin-vendor-action", args=[str(self.vp1.id)])
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            url, {"action": "change_plan", "plan": "premium"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.vp1.refresh_from_db()
+        self.assertEqual(self.vp1.plan_type, "premium")
+        log = AuditLog.objects.filter(
+            action__icontains="change_plan", target__icontains=str(self.vp1.id)
+        ).first()
+        self.assertIsNotNone(log)
