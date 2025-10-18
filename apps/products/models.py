@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from apps.coupons.models import Coupon
 from apps.userAuth.models import CustomUser
+from common.utils.mixins import SoftDeleteMixin
 
 
 class Category(models.Model):
@@ -25,7 +26,7 @@ class Category(models.Model):
         return self.name
 
 
-class Product(models.Model):
+class Product(SoftDeleteMixin, models.Model):
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False, unique=True
     )
