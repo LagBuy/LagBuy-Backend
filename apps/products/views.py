@@ -30,7 +30,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    # permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         if self.action in ["create"]:
@@ -108,7 +107,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
         return customize_response(response, "Product created successfully.")
-    
+
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
@@ -181,7 +180,7 @@ class ImageUploadView(APIView):
             if file_url:
                 return Response({"url": file_url}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            raise e # allows for proper flagging and debugging
+            raise e  # allows for proper flagging and debugging
 
             # return Response(
             #     {"detail": "Failed to upload image."},
