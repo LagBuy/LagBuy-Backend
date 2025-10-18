@@ -30,19 +30,10 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None  # Tell allauth there's no username
 FRONTEND_URL = 'https://shop.lagbuy.com/'
 
 ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_EMAIL_VERIFICATION = 'optional'  # 'mandatory'
 
 SITE_ID = 1
 
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_BACKEND = "sgbackend.SendGridBackend"
-SENDGRID_API_KEY = os.environ["SENDGRID_API_KEY"]
-DEFAULT_FROM_EMAIL = "lagbuy008@gmail.com"
-# EMAIL_USE_TLS = True
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
-# EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"]
-# EMAIL_PORT = 587
 
 
 # ACCOUNT_CONFIRM_EMAIL_ON_GET = True
