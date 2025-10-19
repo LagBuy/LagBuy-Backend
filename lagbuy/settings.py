@@ -34,7 +34,7 @@ SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@lagbuy.com")
 LOGIN_URL = env.str("LOGIN_URL", default="shop.lagbuy.com/login")
 
 # Email configuration
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend" # "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.hostinger.com"
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True
@@ -119,16 +119,20 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
-CORS_ORIGIN_WHITELIST = (
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-    "http://0.0.0.0:8000",  # TODO: Set this to the frontend URL
-)
+# CORS / CSRF: allow only the production LagBuy domains
+CORS_ALLOWED_ORIGINS = [
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-]  # TODO: Set this to the frontend URL
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
 
 ROOT_URLCONF = "lagbuy.urls"
 
