@@ -149,7 +149,7 @@ class CustomRegisterSerializer(RegisterSerializer):
             return user
         except IntegrityError as e:
             # raise a custom exception if the user already exists
-            if str(e) == "UNIQUE constraint failed: userAuth_customuser.email":
+            if "email" in str(e):
                 raise UserAlreadyExist()
             raise e
 
