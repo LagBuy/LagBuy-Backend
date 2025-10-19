@@ -180,13 +180,12 @@ class ImageUploadView(APIView):
             )
             if file_url:
                 return Response({"url": file_url}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"detail": "Failed to upload image."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         except Exception as e:
             raise e # allows for proper flagging and debugging
-
-            # return Response(
-            #     {"detail": "Failed to upload image."},
-            #     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            # )
 
 
 class ViewedProductsViewSet(viewsets.ReadOnlyModelViewSet):
