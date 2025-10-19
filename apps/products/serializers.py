@@ -39,11 +39,13 @@ class ProductSerializer(serializers.ModelSerializer):
     categories = serializers.SlugRelatedField(
         many=True, slug_field="name", queryset=Category.objects.all()
     )
+    # Read-only representation of related images (list of URLs)
     images = serializers.SlugRelatedField(
-        many=True,
-        slug_field="image_url",
-        queryset=ProductImage.objects.all(),
-        required=False,
+        many=True, slug_field="image_url", read_only=True
+    )
+    # Accept a list of image URLs on create; these will be persisted as ProductImage
+    image_urls = serializers.ListField(
+        child=serializers.URLField(), write_only=True, required=False
     )
     shop_location = serializers.SerializerMethodField()
     vendor_id = serializers.SerializerMethodField(read_only=True)
@@ -58,6 +60,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "images",
+            "image_urls",
             "verified",
             "stock_quantity",
             "shop_location",
@@ -88,6 +91,42 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_seller(self, obj):
         return obj.get_seller_name()
+
+    def create(self, validated_data):
+        image_urls = validated_data.pop("image_urls", [])
+        categories = validated_data.pop("categories", None)
+
+        product = Product.objects.create(**validated_data)
+        if categories is not None:
+            product.categories.set(categories)
+
+        if image_urls:
+            images = [
+                ProductImage(product=product, image_url=url) for url in image_urls
+            ]
+            ProductImage.objects.bulk_create(images)
+
+        return product
+
+    def update(self, instance, validated_data):
+        image_urls = validated_data.pop("image_urls", None)
+        categories = validated_data.pop("categories", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if categories is not None:
+            instance.categories.set(categories)
+
+        if image_urls is not None:
+            instance.images.all().delete()
+            images = [
+                ProductImage(product=instance, image_url=url) for url in image_urls
+            ]
+            ProductImage.objects.bulk_create(images)
+
+        return instance
 
 
 class MinimalProductSerializer(serializers.ModelSerializer):
