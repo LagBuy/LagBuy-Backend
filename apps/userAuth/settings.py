@@ -30,7 +30,8 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None  # Tell allauth there's no username
 FRONTEND_URL = 'https://shop.lagbuy.com/'
 
 ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
-ACCOUNT_EMAIL_VERIFICATION = 'optional'  # 'mandatory'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory' if not os.getenv("DEBUG") else 'optional'
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 1
 
 SITE_ID = 1
 

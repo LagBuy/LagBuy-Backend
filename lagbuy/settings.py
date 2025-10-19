@@ -34,7 +34,7 @@ SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@lagbuy.com")
 LOGIN_URL = env.str("LOGIN_URL", default="shop.lagbuy.com/login")
 
 # Email configuration
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend" # "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" # "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = "smtp.hostinger.com"
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True

@@ -1,0 +1,31 @@
+{{ site_name }} - Verify Your Email Address
+=====================================
+
+Welcome to {{ site_name }}! 🎉
+
+Hello{% if user.first_name %} {{ user.first_name }}{% endif %},
+
+Thank you for signing up with {{ site_name }}! We're excited to have you on board.
+
+PLEASE VERIFY YOUR EMAIL ADDRESS
+To complete your registration and start enjoying all our features, please verify your email address by clicking the link below or copying it into your browser.
+
+Verification Link:
+{{ activate_url }}
+
+⏰ IMPORTANT: This verification link will expire in 24 hours for security reasons.
+
+WHY VERIFY YOUR EMAIL?
+- Secure your account and protect your information
+- Receive important updates and notifications
+- Reset your password if you ever forget it
+- Unlock all features of {{ site_name }}
+
+⚠️ DIDN'T CREATE AN ACCOUNT?
+If you didn't sign up for {{ site_name }}, you can safely ignore this email. Your email address will not be added to our system.
+
+---
+Need Help?
+If you're having trouble with the verification link, please contact our support team at {{ support_email }}
+
+© 2025 {{ site_name }}. All rights reserved.
