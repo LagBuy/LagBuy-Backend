@@ -119,16 +119,20 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
-CORS_ORIGIN_WHITELIST = (
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-    "http://0.0.0.0:8000",  # TODO: Set this to the frontend URL
-)
+# CORS / CSRF: allow only the production LagBuy domains
+CORS_ALLOWED_ORIGINS = [
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-]  # TODO: Set this to the frontend URL
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
 
 ROOT_URLCONF = "lagbuy.urls"
 
