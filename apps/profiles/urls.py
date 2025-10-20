@@ -5,6 +5,7 @@ from .views import (
     UpdateVendorBankDetailsView,
     ViewVendorProfileViewSet,
     FavouriteVendor,
+    CheckBusinessNameExists
 )
 
 ViewVendorProfileViewSet = extend_schema_view(
@@ -16,11 +17,15 @@ FavouriteVendor = extend_schema_view(
     create=extend_schema(tags=["Profiles"], summary="Add Favorite Vendor"),
     destroy=extend_schema(tags=["Profiles"], summary="Remove Favorite Vendor"),
 )(FavouriteVendor)
+CheckBusinessNameExists = extend_schema_view(
+    list=extend_schema(tags=["Profiles"], summary="Check Business Name Existence"),
+)(CheckBusinessNameExists)
 
 vendor_profile_list = ViewVendorProfileViewSet.as_view({"get": "list"})
 vendor_profile_detail = ViewVendorProfileViewSet.as_view({"get": "retrieve"})
 favourite_vendor_list = FavouriteVendor.as_view({"get": "list", "post": "create"})
 favourite_vendor_detail = FavouriteVendor.as_view({"delete": "destroy"})
+business_name_check = CheckBusinessNameExists.as_view({"get": "list"})
 
 urlpatterns = [
     path("vendors/", vendor_profile_list, name="vendor-profile-list"),
@@ -37,5 +42,10 @@ urlpatterns = [
         "vendors/update-bank-details/",
         UpdateVendorBankDetailsView.as_view(),
         name="update-bank-details",
+    ),
+    path(
+        "vendors/check-business-name/",
+        business_name_check,
+        name="check-business-name",
     ),
 ]
