@@ -17,8 +17,8 @@ class CartAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = APIClient()
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
+        cls.vendor_role, _ = Role.objects.get_or_create(name='vendor')
 
         cls.user = CustomUser.objects.create_user(
             email="user@example.com",

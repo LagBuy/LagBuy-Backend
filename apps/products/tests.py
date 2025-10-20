@@ -18,8 +18,8 @@ class CategoryAPITest(TestCase):
     def setUpTestData(cls):
         cls.client = APIClient()
 
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
+        cls.vendor_role, _ = Role.objects.get_or_create(name='vendor')
 
         cls.admin = CustomUser.objects.create_superuser(
             email="admin@example.com",
@@ -121,8 +121,8 @@ class ProductAPITest(TestCase):
     def setUpTestData(cls):
         cls.client = APIClient()
 
-        cls.user_role = Role.objects.create(name='user')
-        cls.vendor_role = Role.objects.create(name='vendor')
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
+        cls.vendor_role, _ = Role.objects.get_or_create(name='vendor')
 
         cls.seller = CustomUser.objects.create_user(
             email="seller@example.com",
