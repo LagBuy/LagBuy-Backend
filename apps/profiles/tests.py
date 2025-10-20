@@ -40,9 +40,9 @@ class ProfileModelsTests(TestCase):
             motorcycle_type="bike",
             motorcycle_brand="Honda",
         )
-        cls.user_role = Role.objects.create(name="user")
-        cls.vendor_role = Role.objects.create(name="vendor")
-        cls.rider_role = Role.objects.create(name="rider")
+        cls.user_role, _ = Role.objects.get_or_create(name="user")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
+        cls.rider_role, _ = Role.objects.get_or_create(name="rider")
         cls.user.roles.add(cls.user_role)
         cls.user.roles.add(cls.vendor_role)
         cls.user.roles.add(cls.rider_role)
@@ -128,9 +128,9 @@ class ProfileAPITest(TestCase):
             motorcycle_type="bike",
             motorcycle_brand="Honda",
         )
-        cls.user_role = Role.objects.create(name="user")
-        cls.vendor_role = Role.objects.create(name="vendor")
-        cls.rider_role = Role.objects.create(name="rider")
+        cls.user_role, _ = Role.objects.get_or_create(name="user")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
+        cls.rider_role, _ = Role.objects.get_or_create(name="rider")
         cls.user.roles.add(cls.user_role)
         cls.user.roles.add(cls.vendor_role)
         cls.user.roles.add(cls.rider_role)
@@ -428,7 +428,7 @@ class SensitiveActionsForVendorTests(TestCase):
             bank_code="001",
             account_number="12345",
         )
-        cls.vendor_role = Role.objects.create(name="vendor")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
         cls.vendor.roles.add(cls.vendor_role)
 
     def setUp(self):

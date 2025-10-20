@@ -82,3 +82,22 @@ class UpdateVendorBankDetailsView(generics.UpdateAPIView):
 
     def get_object(self):
         return self.request.user.vendor_profile
+
+
+class CheckBusinessNameExists(ModelViewSet):
+    """a view to check if a business name already exists"""
+    serializer_class = VendorProfileSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ["get"]
+    queryset = VendorsProfile.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        """Check if business name exists"""
+        business_name = request.query_params.get("business_name", None)
+        if business_name is None:
+            return error_response(
+                "business_name query parameter is required", status_code=400
+            )
+        exists = VendorsProfile.objects.filter(business_name__iexact=business_name).exists()
+        data = {"business_name": business_name, "exists": exists}
+        return success_response(data, "Business name existence checked successfully")

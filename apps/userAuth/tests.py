@@ -26,7 +26,7 @@ class UserTests(TestCase):
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
-        cls.user_role = Role.objects.create(name='user')
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
         cls.user.roles.add(cls.user_role)
 
     def test_user_model(self):
@@ -68,7 +68,7 @@ class UserAPITest(TestCase):
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
-        cls.user_role = Role.objects.create(name='user')
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
         cls.user.roles.add(cls.user_role)
     
     def setUp(self):

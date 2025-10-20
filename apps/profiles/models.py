@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 from apps.products.models import Product
@@ -81,6 +82,16 @@ class VendorsProfile(models.Model):
     class Meta:
         verbose_name = "Vendor Profile"
         verbose_name_plural = "Vendors Profile"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("business_name"),
+                name="unique_lower_business_name_constraint",
+                violation_error_message="A vendor with this business name already exists.",
+            )
+        ]
+        indexes = [
+            models.Index(fields=['business_name']),
+        ]
 
     def __str__(self):
         """object return string"""

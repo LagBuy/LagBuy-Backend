@@ -118,6 +118,11 @@ class CustomRegisterSerializer(RegisterSerializer):
                         business_location_city=self.validated_data.get('business_location_city', ''),
                         business_location_state=self.validated_data.get('business_location_state', '')
                     )
+                except IntegrityError as e:
+                    user.delete()
+                    if "business_name" in str(e):
+                        raise serializers.ValidationError({"business_name": "A vendor with this business name already exists."})
+                    raise e
                 except Exception as e:
                     user.delete()
                     raise e

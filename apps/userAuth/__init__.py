@@ -1,6 +1,6 @@
 # from .models import Role
 
-# Role.objects.create(name='user')
-# Role.objects.create(name='vendor')
-# Role.objects.create(name='rider')
+# Role.objects.get_or_create(name='user')
+# Role.objects.get_or_create(name='vendor')
+# Role.objects.get_or_create(name='rider')
 # TODO: seed roles into the db

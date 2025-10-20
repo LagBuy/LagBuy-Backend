@@ -21,8 +21,8 @@ class OrderAPITest(TestCase):
     def setUpTestData(cls):
         cls.client = APIClient()
 
-        cls.user_role = Role.objects.create(name="user")
-        cls.vendor_role = Role.objects.create(name="vendor")
+        cls.user_role, _ = Role.objects.get_or_create(name="user")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
 
         cls.buyer = CustomUser.objects.create_user(
             email="buyer@example.com",

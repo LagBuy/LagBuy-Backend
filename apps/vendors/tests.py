@@ -42,8 +42,8 @@ class VendorDashboardTest(TestCase):
         cls.seller2 = CustomUser.objects.create_user(
             email="test2@seller.com", password="testpassword"
         )
-        cls.user_role = Role.objects.create(name="user")
-        cls.vendor_role = Role.objects.create(name="vendor")
+        cls.user_role, _ = Role.objects.get_or_create(name="user")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
         cls.user.roles.add(cls.user_role)
         cls.seller.roles.add(cls.user_role)
         cls.seller.roles.add(cls.vendor_role)
@@ -309,7 +309,7 @@ class VendorWalletSummaryTest(TestCase):
         cls.vendor = CustomUser.objects.create_user(
             email="vendor@example.com", password="testpass"
         )
-        cls.role = Role.objects.create(name="vendor")
+        cls.role, _ = Role.objects.get_or_create(name="vendor")
         cls.vendor.roles.add(cls.role)
 
         # Create vendor wallet
@@ -384,7 +384,7 @@ class VendorExportTests(TestCase):
         cls.vendor = CustomUser.objects.create_user(
             email="vendor@example.com", password="test"
         )
-        role = Role.objects.create(name="vendor")
+        role, _ = Role.objects.get_or_create(name="vendor")
         cls.vendor.roles.add(role)
         VendorWallet.objects.create(vendor=cls.vendor, balance=Decimal("0.00"))
 
@@ -587,8 +587,8 @@ class AdminVendorControlsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         # create roles
-        cls.vendor_role = Role.objects.create(name="vendor")
-        cls.user_role = Role.objects.create(name="user")
+        cls.vendor_role, _ = Role.objects.get_or_create(name="vendor")
+        cls.user_role, _ = Role.objects.get_or_create(name="user")
 
         # admin user (Django staff/superuser)
         cls.admin = CustomUser.objects.create_user(
