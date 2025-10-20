@@ -2,9 +2,9 @@ name: Django CI
 
 on:
   push:
-    branches: [ "dev" ]
+    branches: [ "dev", "prod" ]
   pull_request:
-    branches: [ "dev" ]
+    branches: [ "dev", "prod" ]
 
 jobs:
   build:
@@ -23,7 +23,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         echo 'SECRET_KEY=django-insecure-githubcitest
-        DATABASE_URL=sqlite:///db.sqlite3' > .env
+        DATABASE_URL=sqlite:///db.sqlite3
+        DEBUG=True' > .env
 
     - name: Run Tests
       env:
