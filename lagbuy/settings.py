@@ -29,6 +29,7 @@ ADMINS = [
     ("Admin", env.str("ADMIN_EMAIL", default="chinwezechisom@gmail.com")),
     ("LagBuy Team", "lagbuy008@gmail.com"),
 ]
+SITE_NAME = env.str("SITE_NAME", default="LagBuy")
 SERVER_EMAIL = env.str("SERVER_EMAIL", default="no-reply@lagbuy.com")
 SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@lagbuy.com")
 LOGIN_URL = env.str("LOGIN_URL", default="shop.lagbuy.com/login")

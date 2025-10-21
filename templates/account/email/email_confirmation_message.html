@@ -118,7 +118,7 @@
         <h1>Welcome to {{ site_name }}! 🎉</h1>
         
         <div class="content">
-            <p>Hello{% if user.first_name %} {{ user.first_name }}{% endif %},</p>
+            <p>Hello{% if user.user_profile.first_name %} {{ user.user_profile.first_name }}{% endif %},</p>
             
             <p>Thank you for signing up with {{ site_name }}! We're excited to have you on board.</p>
             
