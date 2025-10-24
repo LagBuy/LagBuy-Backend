@@ -1,0 +1,71 @@
+{{ site_name }} - New Order Notification
+=====================================
+
+Hello Admin,
+
+A new order has been placed and requires delivery coordination.
+
+ORDER SUMMARY
+-------------
+Order ID: {{ order_id }}
+Order Date: {{ order_date }}
+Payment Status: PAID ✓
+Customer: {{ customer_name }}
+
+📦 NEW DELIVERY AVAILABLE
+
+🔖 Order ID: {{ order_id_short }}
+🏪 Pickup: {{ vendor_address }}
+� Vendor Phone: {{ vendor_phone }}
+�📍 Drop-off: {{ delivery_address }}
+📞 Customer Phone: {{ customer_phone }}
+💵 Rider Pay: ₦{{ rider_pay }}
+📦 Items: {{ items_list }}
+
+📝 To Accept: Reply "PICKED {{ order_id_short }}"
+
+⚠️ First to reply gets the job.
+
+---
+
+DETAILED ORDER INFORMATION
+---------------------------
+
+Vendor: {{ vendor_name }}
+Vendor Business: {{ vendor_business_name }}
+Vendor Contact: {{ vendor_email }}
+Vendor Phone: {{ vendor_phone }}
+
+Customer: {{ customer_name }}
+Customer Contact: {{ customer_email }}
+Customer Phone: {{ customer_phone }}
+
+ORDER ITEMS
+-----------
+{% for item in order_items %}{{ loop.index }}. {{ item.product_name }}
+   - Quantity: {{ item.quantity }}
+   - Price: ₦{{ item.unit_price }}
+   - Subtotal: ₦{{ item.subtotal }}
+{% endfor %}
+
+FINANCIAL SUMMARY
+-----------------
+Subtotal: ₦{{ subtotal }}
+Service Charge: ₦{{ service_charge }}
+Order Total: ₦{{ total_amount }}
+
+---
+
+ADMIN ACTIONS
+-------------
+- View full order details in the admin dashboard
+- Assign a rider for delivery
+- Monitor order status
+
+For any issues or questions, contact support at {{ support_email }}
+
+Best regards,
+The {{ site_name }} System
+
+---
+This is an automated notification from the {{ site_name }} order management system.

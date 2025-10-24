@@ -33,6 +33,8 @@ SITE_NAME = env.str("SITE_NAME", default="LagBuy")
 SERVER_EMAIL = env.str("SERVER_EMAIL", default="no-reply@lagbuy.com")
 SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@lagbuy.com")
 LOGIN_URL = env.str("LOGIN_URL", default="shop.lagbuy.com/login")
+BUYER_LOGIN_URL = env.str("BUYER_LOGIN_URL", default="https://shop.lagbuy.com/login")
+VENDOR_LOGIN_URL = env.str("VENDOR_LOGIN_URL", default="https://vendors.lagbuy.com/login")
 
 # Email configuration
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" # "django.core.mail.backends.console.EmailBackend"
@@ -43,6 +45,10 @@ EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[LagBuy Team] "
+SEND_NEW_ORDER_DETAILS = [
+    "lagbuy008@gmail.com",
+    "orimoloyeolayemi2019@yahoo.com"
+] # List of admin emails to notify on new orders
 
 # Application definition
 
