@@ -1,16 +1,31 @@
 import datetime
 
+from decimal import Decimal
+from django.core import mail
+from django.utils import timezone
+from unittest.mock import patch, MagicMock
+
 from django.test import TestCase, override_settings
 from django.urls import reverse_lazy
 from rest_framework import status
 from rest_framework.test import APIClient
+from django.contrib.auth import get_user_model
 
 from apps.products.models import Product
 from apps.userAuth.models import CustomUser, Role
-from apps.profiles.models import UsersProfile
+from apps.profiles.models import UsersProfile, VendorsProfile
 from apps.cart.models import Cart, CartItem
 
 from .models import Order, OrderItem
+
+from common.utils.email_utils import (
+    send_vendor_new_order_email,
+    notify_vendor_of_new_order,
+    send_admin_new_order_email,
+    notify_admins_of_new_order,
+)
+
+User = get_user_model()
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
@@ -161,7 +176,7 @@ class OrderAPITest(TestCase):
         self.assertIn(order_data["delivery_status"], ["pending", "completed"])
         self.assertEqual(order_data["service_charge"], self.order.service_charge)
         self.assertEqual(len(order_data["items"]), 1)
-        self.assertEqual(order_data["total_price"], 800)  # plus service charge
+        self.assertEqual(order_data["total_price"], 598)  # 200 subtotal + 398 service charge
 
     def test_get_order_unauthenticated(self):
         """Test unauthenticated users cannot retrieve orders."""
@@ -382,3 +397,426 @@ class OrderAPITest(TestCase):
         self.assertEqual(
             response.data["data"]["delivery_status"], OrderItem.DeliveryStatus.SHIPPED
         )
+
+
+"""
+Tests for email utility functions.
+"""
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    VENDOR_URL='https://vendors.lagbuy.com/',
+    SITE_NAME='LagBuy',
+    SUPPORT_EMAIL='support@lagbuy.com',
+    DEFAULT_FROM_EMAIL='noreply@lagbuy.com',
+    SEND_NEW_ORDER_DETAILS=['admin1@lagbuy.com', 'admin2@lagbuy.com'],
+    DEFAULT_RIDER_PAY=1200,
+)
+class VendorEmailUtilsTestCase(TestCase):
+    """Test cases for vendor email utility functions."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create vendor user
+        self.vendor = User.objects.create_user(
+            email='vendor@test.com',
+            password='testpass123'
+        )
+        self.vendor_user_profile = UsersProfile.objects.create(
+            user=self.vendor,
+            first_name='John',
+            last_name='Vendor',
+            phone_number='08012345678'
+        )
+        self.vendor_profile = VendorsProfile.objects.create(
+            user=self.vendor,
+            business_name='John\'s Store',
+            business_address='123 Market Street',
+            business_location_city='Lagos',
+            business_location_state='Lagos',
+        )
+        
+        # Create buyer user
+        self.buyer = User.objects.create_user(
+            email='buyer@test.com',
+            password='testpass123'
+        )
+        self.buyer_profile = UsersProfile.objects.create(
+            user=self.buyer,
+            first_name='Jane',
+            last_name='Buyer',
+            phone_number='08087654321'
+        )
+        
+        # Create product
+        self.product = Product.objects.create(
+            name='Test Product',
+            price=Decimal('5000.00'),
+            seller=self.vendor,
+            description='Test description',
+            stock_quantity=10
+        )
+        
+        # Create order
+        self.order = Order.objects.create(
+            buyer=self.buyer,
+            delivery_address='456 Delivery Lane, Ikeja, Lagos'
+        )
+        
+        # Create order item
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1
+        )
+        
+        # Clear mail outbox
+        mail.outbox = []
+    
+    def test_send_vendor_new_order_email_success(self):
+        """Test sending vendor email successfully."""
+        result = send_vendor_new_order_email(self.order, self.vendor)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.to, ['vendor@test.com'])
+        self.assertIn('New Order', sent_email.subject)
+        self.assertIn('Test Product', sent_email.body)
+    
+    def test_send_vendor_email_includes_vendor_name(self):
+        """Test that vendor email includes vendor's name."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('John', sent_email.body)
+    
+    def test_send_vendor_email_includes_customer_name(self):
+        """Test that vendor email includes customer's name."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('Jane Buyer', sent_email.body)
+    
+    def test_send_vendor_email_includes_order_items(self):
+        """Test that vendor email includes order items."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('Test Product', sent_email.body)
+        self.assertIn('5,000.00', sent_email.body)
+    
+    def test_send_vendor_email_includes_totals(self):
+        """Test that vendor email includes correct totals."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('5,000.00', sent_email.body)  # Subtotal
+        self.assertIn('5,000.00', sent_email.body)  # Service charge
+    
+    def test_send_vendor_email_html_and_text(self):
+        """Test that both HTML and plain text versions are sent."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertEqual(len(sent_email.alternatives), 1)
+        self.assertEqual(sent_email.alternatives[0][1], 'text/html')
+    
+    def test_notify_vendor_of_new_order(self):
+        """Test notify_vendor_of_new_order function."""
+        result = notify_vendor_of_new_order(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['vendor@test.com'])
+    
+    def test_notify_vendor_includes_correct_items(self):
+        """Test that only vendor's items are included in notification."""
+        # Create another vendor
+        other_vendor = User.objects.create_user(
+            email='other@test.com',
+            password='testpass123'
+        )
+        
+        # Notify should only send to the order's vendor
+        result = notify_vendor_of_new_order(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['vendor@test.com'])
+    
+    def test_send_vendor_email_no_profile(self):
+        """Test sending email when vendor has no profile."""
+        # Delete vendor profile
+        self.vendor_profile.delete()
+        
+        result = send_vendor_new_order_email(self.order, self.vendor)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+    
+    def test_send_vendor_email_no_items(self):
+        """Test sending email when order has no items."""
+        # Create empty order
+        empty_order = Order.objects.create(
+            buyer=self.buyer
+        )
+        
+        result = send_vendor_new_order_email(empty_order, self.vendor)
+        
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+    
+    @patch('common.utils.email_utils.EmailMultiAlternatives.send')
+    def test_send_vendor_email_handles_errors(self, mock_send):
+        """Test error handling when email sending fails."""
+        mock_send.side_effect = Exception('Email server error')
+        
+        result = send_vendor_new_order_email(self.order, self.vendor)
+        
+        self.assertFalse(result)
+    
+    def test_vendor_email_includes_dashboard_link(self):
+        """Test that vendor email includes link to dashboard."""
+        send_vendor_new_order_email(self.order, self.vendor)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('vendor dashboard', sent_email.body)
+
+
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    SITE_NAME='LagBuy',
+    SUPPORT_EMAIL='support@lagbuy.com',
+    DEFAULT_FROM_EMAIL='noreply@lagbuy.com',
+    SEND_NEW_ORDER_DETAILS=['admin1@lagbuy.com', 'admin2@lagbuy.com'],
+    DEFAULT_RIDER_PAY=1200,
+)
+class AdminEmailUtilsTestCase(TestCase):
+    """Test cases for admin email utility functions."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create vendor user
+        self.vendor = User.objects.create_user(
+            email='vendor@test.com',
+            password='testpass123'
+        )
+        self.vendor_user_profile = UsersProfile.objects.create(
+            user=self.vendor,
+            first_name='John',
+            last_name='Vendor',
+            phone_number='08012345678'
+        )
+        self.vendor_profile = VendorsProfile.objects.create(
+            user=self.vendor,
+            business_name='John\'s Store',
+            business_address='123 Market Street',
+            business_location_city='Lagos',
+            business_location_state='Lagos',
+        )
+        
+        # Create buyer user
+        self.buyer = User.objects.create_user(
+            email='buyer@test.com',
+            password='testpass123'
+        )
+        self.buyer_profile = UsersProfile.objects.create(
+            user=self.buyer,
+            first_name='Jane',
+            last_name='Buyer',
+            phone_number='08087654321'
+        )
+        
+        # Create product
+        self.product = Product.objects.create(
+            name='Test Product',
+            price=Decimal('5000.00'),
+            seller=self.vendor,
+            description='Test description',
+            stock_quantity=10
+        )
+        
+        # Create order
+        self.order = Order.objects.create(
+            buyer=self.buyer,
+            delivery_address='456 Delivery Lane, Ikeja, Lagos'
+        )
+        
+        # Create order item
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1
+        )
+        
+        # Clear mail outbox
+        mail.outbox = []
+    
+    def test_send_admin_new_order_email_success(self):
+        """Test sending admin email successfully."""
+        result = send_admin_new_order_email(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.to, ['admin1@lagbuy.com', 'admin2@lagbuy.com'])
+        self.assertIn('New Order', sent_email.subject)
+    
+    def test_admin_email_includes_delivery_details(self):
+        """Test that admin email includes delivery coordination details."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        # Check for delivery box content
+        self.assertIn('NEW DELIVERY AVAILABLE', sent_email.body)
+        self.assertIn('Order ID:', sent_email.body)
+        self.assertIn('Pickup:', sent_email.body)
+        self.assertIn('Drop-off:', sent_email.body)
+        self.assertIn('Rider Pay:', sent_email.body)
+        self.assertIn('Items:', sent_email.body)
+    
+    def test_admin_email_includes_vendor_address(self):
+        """Test that admin email includes vendor's full address."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('123 Market Street', sent_email.body)
+        self.assertIn('Lagos', sent_email.body)
+    
+    def test_admin_email_includes_delivery_address(self):
+        """Test that admin email includes delivery address."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('456 Delivery Lane, Ikeja, Lagos', sent_email.body)
+    
+    def test_admin_email_includes_rider_pay(self):
+        """Test that admin email includes rider pay amount."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('₦1,200', sent_email.body)
+    
+    def test_admin_email_includes_items_list(self):
+        """Test that admin email includes simple items list."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('Test Product', sent_email.body)
+    
+    def test_admin_email_includes_acceptance_instructions(self):
+        """Test that admin email includes rider acceptance instructions."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        order_id_short = str(self.order.id)[:8]
+        self.assertIn(f'PICKED {order_id_short}', sent_email.body)
+        self.assertIn('First to reply gets the job', sent_email.body)
+    
+    def test_admin_email_includes_customer_details(self):
+        """Test that admin email includes customer information."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('Jane Buyer', sent_email.body)
+        self.assertIn('buyer@test.com', sent_email.body)
+    
+    def test_admin_email_includes_vendor_details(self):
+        """Test that admin email includes vendor information."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('John Vendor', sent_email.body)
+        self.assertIn('John', sent_email.body)  # Vendor business name
+        self.assertIn('vendor@test.com', sent_email.body)
+    
+    def test_admin_email_includes_order_totals(self):
+        """Test that admin email includes order totals."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('5,000.00', sent_email.body)  # Subtotal
+        self.assertIn('398.00', sent_email.body)  # Service charge (min charge for 5000 subtotal)
+        self.assertIn('5,398.00', sent_email.body)  # Total (5000 + 398 service charge)
+    
+    def test_admin_email_html_and_text(self):
+        """Test that both HTML and plain text versions are sent."""
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertEqual(len(sent_email.alternatives), 1)
+        self.assertEqual(sent_email.alternatives[0][1], 'text/html')
+    
+    def test_notify_admins_of_new_order(self):
+        """Test notify_admins_of_new_order function."""
+        result = notify_admins_of_new_order(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['admin1@lagbuy.com', 'admin2@lagbuy.com'])
+    
+    def test_admin_email_no_settings_config(self):
+        """Test that function handles missing settings gracefully."""
+        with self.settings(SEND_NEW_ORDER_DETAILS=[]):
+            result = send_admin_new_order_email(self.order)
+            
+            self.assertFalse(result)
+            self.assertEqual(len(mail.outbox), 0)
+    
+    def test_admin_email_vendor_no_profile(self):
+        """Test admin email when vendor has no profile."""
+        # Delete vendor profile
+        self.vendor_profile.delete()
+        
+        result = send_admin_new_order_email(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        # Should still send email with available data
+        sent_email = mail.outbox[0]
+        self.assertIn('vendor@test.com', sent_email.body)
+    
+    def test_admin_email_customer_no_profile(self):
+        """Test admin email when customer has no profile."""
+        # Delete buyer profile
+        self.buyer_profile.delete()
+        
+        result = send_admin_new_order_email(self.order)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+    
+    @patch('common.utils.email_utils.EmailMultiAlternatives.send')
+    def test_admin_email_handles_errors(self, mock_send):
+        """Test error handling when email sending fails."""
+        mock_send.side_effect = Exception('Email server error')
+        
+        result = send_admin_new_order_email(self.order)
+        
+        self.assertFalse(result)
+    
+    def test_admin_email_multiple_items(self):
+        """Test admin email with multiple order items."""
+        # Create another product and order item
+        product2 = Product.objects.create(
+            name='Product Two',
+            price=Decimal('3000.00'),
+            seller=self.vendor,
+            description='Second product',
+            stock_quantity=10
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=product2,
+            quantity=2
+        )
+        
+        send_admin_new_order_email(self.order)
+        
+        sent_email = mail.outbox[0]
+        self.assertIn('Test Product', sent_email.body)
+        self.assertIn('Product Two', sent_email.body)
+        # Check items list includes both
+        self.assertIn('Test Product, Product Two', sent_email.body)

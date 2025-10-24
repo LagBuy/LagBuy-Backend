@@ -1,0 +1,52 @@
+{{ site_name }} - New Order Notification
+=====================================
+
+Congratulations! 🎉
+
+Hello {{ vendor_name }},
+
+Great news! You have received a new order on {{ site_name }}.
+
+ORDER DETAILS
+--------------
+Order ID: {{ order_id }}
+Order Date: {{ order_date }}
+Payment Status: PAID ✓
+
+CUSTOMER INFORMATION
+--------------------
+Customer Name: {{ customer_name }}
+
+ITEMS ORDERED
+-------------
+{% for item in order_items %}{{ loop.index }}. {{ item.product_name }}
+   - Quantity: {{ item.quantity }}
+   - Price per unit: ₦{{ item.unit_price }}
+   - Subtotal: ₦{{ item.subtotal }}
+{% endfor %}
+
+TOTAL
+-----
+Order Total: ₦{{ subtotal }}
+Service Charge: ₦{{ service_charge }}
+
+NEXT STEPS
+----------
+1. Log in to your vendor dashboard to view full order details
+2. Prepare the items for pickup
+3. Mark items as ready when prepared
+4. Our riders will be notified for pickup once items are ready
+
+⚠️ IMPORTANT: Please prepare this order as soon as possible to ensure timely delivery to the customer.
+
+Need help or have questions?
+Contact our vendor support team at {{ support_email }}
+
+Thank you for being a valued vendor partner!
+
+Best regards,
+The {{ site_name }} Team
+
+---
+This is an automated notification. Please do not reply to this email.
+For support, contact: {{ support_email }}

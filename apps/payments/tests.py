@@ -1,8 +1,9 @@
 import uuid
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.management import call_command
 from django.test.utils import override_settings
 from django.urls import reverse
@@ -254,6 +255,284 @@ class VerifyPaymentViewTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Unable to verify payment", response.data["detail"])
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    @patch("apps.payments.views.payment_service.verify_payment")
+    def test_verify_payment_sends_vendor_email(self, mock_verify):
+        """Test that vendor email notification is sent on successful payment"""
+        # Create vendor user
+        vendor = CustomUser.objects.create_user(
+            email="vendor@test.com", password="testpass123"
+        )
+        UsersProfile.objects.create(user=vendor, first_name="Vendor", last_name="User")
+        
+        # Create product for vendor
+        product = Product.objects.create(
+            name="Test Product",
+            price=100.0,
+            description="Test Description",
+            stock_quantity=10,
+            seller=vendor,
+        )
+        
+        # Update order item to use vendor's product
+        self.order_item.product = product
+        self.order_item.save()
+        
+        mock_response = {
+            "status": True,
+            "message": "Verification successful",
+            "data": {
+                "reference": "test_ref_123",
+                "status": "success",
+                "amount": 10000,
+                "currency": "NGN",
+                "paid_at": "2023-01-01T12:00:00Z",
+                "channel": "card",
+                "gateway_response": "Successful",
+            },
+        }
+        mock_verify.return_value = mock_response
+        
+        # Clear mail outbox
+        mail.outbox = []
+        
+        self.client.force_authenticate(user=self.user)
+        url = reverse("verify_payment", kwargs={"reference": self.payment.ref})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify both vendor and admin emails were sent (2 total)
+        self.assertEqual(len(mail.outbox), 2)
+        
+        # First email should be to vendor
+        vendor_email = mail.outbox[0]
+        self.assertEqual(vendor_email.to, [vendor.email])
+        self.assertIn('New Order Received', vendor_email.subject)
+        self.assertIn('Test Product', vendor_email.body)
+        self.assertIn('Vendor', vendor_email.body)  # Vendor's first name
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    @patch("apps.payments.views.payment_service.verify_payment")
+    def test_verify_payment_sends_email_single_vendor_per_order(self, mock_verify):
+        """Test that vendor email is sent for single vendor order (business rule)"""
+        # Note: Orders can only contain items from a single vendor
+        vendor1 = CustomUser.objects.create_user(
+            email="vendor1@test.com", password="testpass123"
+        )
+        UsersProfile.objects.create(user=vendor1, first_name="Vendor", last_name="One")
+        
+        # Create product for vendor
+        product1 = Product.objects.create(
+            name="Product 1",
+            price=100.0,
+            description="Test",
+            stock_quantity=10,
+            seller=vendor1,
+        )
+        
+        # Update existing order item to use vendor1's product
+        self.order_item.product = product1
+        self.order_item.save()
+        
+        # Add another item from same vendor to same order
+        OrderItem.objects.create(
+            order=self.order,
+            product=product1,
+            quantity=1
+        )
+        
+        mock_response = {
+            "status": True,
+            "message": "Verification successful",
+            "data": {
+                "reference": "test_ref_123",
+                "status": "success",
+                "amount": 10000,
+                "currency": "NGN",
+                "paid_at": "2023-01-01T12:00:00Z",
+                "channel": "card",
+                "gateway_response": "Successful",
+            },
+        }
+        mock_verify.return_value = mock_response
+        
+        # Clear mail outbox
+        mail.outbox = []
+        
+        self.client.force_authenticate(user=self.user)
+        url = reverse("verify_payment", kwargs={"reference": self.payment.ref})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify both vendor and admin emails were sent (2 total)
+        self.assertEqual(len(mail.outbox), 2)
+        
+        # First email should be to vendor
+        vendor_email = mail.outbox[0]
+        self.assertEqual(vendor_email.to, [vendor1.email])
+        self.assertIn('Product 1', vendor_email.body)
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        SEND_NEW_ORDER_DETAILS=['admin1@lagbuy.com', 'admin2@lagbuy.com'],
+        DEFAULT_RIDER_PAY=1200,
+    )
+    @patch("apps.payments.views.payment_service.verify_payment")
+    def test_verify_payment_sends_admin_email(self, mock_verify):
+        """Test that admin email notification is sent on successful payment"""
+        # Create vendor user
+        vendor = CustomUser.objects.create_user(
+            email="vendor@test.com", password="testpass123"
+        )
+        vendor_user_profile = UsersProfile.objects.create(
+            user=vendor, 
+            first_name="Vendor", 
+            last_name="User"
+        )
+        vendor_profile = VendorsProfile.objects.create(
+            user=vendor,
+            business_name="Test Store",
+            business_address="123 Market St",
+            business_location_city="Lagos",
+            business_location_state="Lagos"
+        )
+        
+        # Create buyer profile
+        buyer_profile = UsersProfile.objects.create(
+            user=self.user,
+            first_name="Buyer",
+            last_name="User"
+        )
+        
+        # Create product for vendor
+        product = Product.objects.create(
+            name="Test Product",
+            price=100.0,
+            description="Test Description",
+            stock_quantity=10,
+            seller=vendor,
+        )
+        
+        # Update order item and order
+        self.order_item.product = product
+        self.order_item.save()
+        self.order.delivery_address = "456 Delivery Lane, Ikeja, Lagos"
+        self.order.save()
+        
+        mock_response = {
+            "status": True,
+            "message": "Verification successful",
+            "data": {
+                "reference": "test_ref_123",
+                "status": "success",
+                "amount": 10000,
+                "currency": "NGN",
+                "paid_at": "2023-01-01T12:00:00Z",
+                "channel": "card",
+                "gateway_response": "Successful",
+            },
+        }
+        mock_verify.return_value = mock_response
+        
+        # Clear mail outbox
+        mail.outbox = []
+        
+        self.client.force_authenticate(user=self.user)
+        url = reverse("verify_payment", kwargs={"reference": self.payment.ref})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify two emails were sent (vendor + admin)
+        self.assertEqual(len(mail.outbox), 2)
+        
+        # Check vendor email
+        vendor_email = mail.outbox[0]
+        self.assertEqual(vendor_email.to, [vendor.email])
+        
+        # Check admin email
+        admin_email = mail.outbox[1]
+        self.assertEqual(admin_email.to, ['admin1@lagbuy.com', 'admin2@lagbuy.com'])
+        self.assertIn('New Order', admin_email.subject)
+        self.assertIn('NEW DELIVERY AVAILABLE', admin_email.body)
+        self.assertIn('123 Market St', admin_email.body)  # Vendor address
+        self.assertIn('456 Delivery Lane', admin_email.body)  # Delivery address
+        self.assertIn('₦1,200', admin_email.body)  # Rider pay
+        self.assertIn('Test Product', admin_email.body)
+        self.assertIn('PICKED', admin_email.body)  # Acceptance instructions
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        SEND_NEW_ORDER_DETAILS=['admin@lagbuy.com'],
+    )
+    @patch("apps.payments.views.payment_service.verify_payment")
+    def test_verify_payment_no_duplicate_admin_emails(self, mock_verify):
+        """Test that admin emails are not sent on re-verification"""
+        # Create vendor user
+        vendor = CustomUser.objects.create_user(
+            email="vendor@test.com", password="testpass123"
+        )
+        UsersProfile.objects.create(
+            user=vendor,
+            first_name="Vendor",
+            last_name="User"
+        )
+        VendorsProfile.objects.create(
+            user=vendor,
+            business_name="Test Store"
+        )
+        
+        # Create product
+        product = Product.objects.create(
+            name="Test Product",
+            price=100.0,
+            seller=vendor,
+            stock_quantity=10
+        )
+        
+        self.order_item.product = product
+        self.order_item.save()
+        
+        mock_response = {
+            "status": True,
+            "message": "Verification successful",
+            "data": {
+                "reference": "test_ref_123",
+                "status": "success",
+                "amount": 10000,
+                "currency": "NGN",
+                "paid_at": "2023-01-01T12:00:00Z",
+                "channel": "card",
+                "gateway_response": "Successful",
+            },
+        }
+        mock_verify.return_value = mock_response
+        
+        # Clear mail outbox
+        mail.outbox = []
+        
+        # First verification
+        self.client.force_authenticate(user=self.user)
+        url = reverse("verify_payment", kwargs={"reference": self.payment.ref})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should have 2 emails (vendor + admin)
+        self.assertEqual(len(mail.outbox), 2)
+        
+        # Clear mail outbox
+        mail.outbox = []
+        
+        # Second verification (re-verification)
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should have no new emails
+        self.assertEqual(len(mail.outbox), 0)
+
 
 
 @override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))

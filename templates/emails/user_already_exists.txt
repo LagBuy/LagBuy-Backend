@@ -11,6 +11,16 @@ If you were trying to sign up:
 - You can simply log in using your existing credentials
 - If you've forgotten your password, you can reset it using the password recovery option
 
+CHOOSE YOUR LOGIN PAGE:
+
+🛍️  SHOP LOGIN
+For customers looking to browse and purchase products
+Login here: {{ buyer_login_url }}
+
+🏪 VENDORS LOGIN
+For sellers managing their products and orders
+Login here: {{ vendor_login_url }}
+
 FORGOT YOUR PASSWORD?
 Click the "Forgot Password" link on the login page to reset it securely.
 
