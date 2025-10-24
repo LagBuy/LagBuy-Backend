@@ -58,6 +58,37 @@
         .button:hover {
             background-color: #45a049;
         }
+        .button-vendor {
+            background-color: #2196F3;
+        }
+        .button-vendor:hover {
+            background-color: #1976D2;
+        }
+        .login-options {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .login-option {
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .login-option h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .login-option p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
         .footer {
             margin-top: 40px;
             padding-top: 20px;
@@ -103,8 +134,20 @@
                 <li>If you've forgotten your password, you can reset it using the password recovery option</li>
             </ul>
             
-            <div style="text-align: center;">
-                <a href="{{ login_url }}" class="button">Log In to Your Account</a>
+            <p style="text-align: center; margin-top: 25px;"><strong>Choose your login page:</strong></p>
+            
+            <div class="login-options">
+                <div class="login-option">
+                    <h3>🛍️ Shop</h3>
+                    <p>For customers looking to browse and purchase products</p>
+                    <a href="{{ buyer_login_url }}" class="button">Buyer Login</a>
+                </div>
+                
+                <div class="login-option">
+                    <h3>🏪 Vendors</h3>
+                    <p>For sellers managing their products and orders</p>
+                    <a href="{{ vendor_login_url }}" class="button button-vendor">Vendor Login</a>
+                </div>
             </div>
             
             <div class="help-text">

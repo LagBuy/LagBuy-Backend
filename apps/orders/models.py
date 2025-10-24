@@ -45,13 +45,45 @@ class Order(models.Model):
         return self.PaymentStatus.UNPAID
 
     @property
+    def subtotal(self):
+        """
+        Returns the subtotal for all items in the order (before service charge).
+        """
+        return sum([item.total_price for item in self.items.all()])
+
+    @property
+    def service_charge(self):
+        """
+        Returns the service charge for the order based on subtotal.
+        Uses a dynamic algorithm that scales between 398-598 based on order subtotal.
+        - Orders with subtotal <= 5000: minimum charge of 398
+        - Orders with subtotal >= 100000: maximum charge of 598
+        - Orders in between: scaled proportionally
+        """
+        MIN_CHARGE = Decimal('398')
+        MAX_CHARGE = Decimal('598')
+        MIN_SUBTOTAL = Decimal('5000')
+        MAX_SUBTOTAL = Decimal('100000')
+        
+        subtotal = self.subtotal
+        
+        if subtotal <= MIN_SUBTOTAL:
+            return MIN_CHARGE
+        elif subtotal >= MAX_SUBTOTAL:
+            return MAX_CHARGE
+        else:
+            # Linear interpolation between min and max
+            charge_range = MAX_CHARGE - MIN_CHARGE
+            subtotal_range = MAX_SUBTOTAL - MIN_SUBTOTAL
+            proportion = (subtotal - MIN_SUBTOTAL) / subtotal_range
+            return MIN_CHARGE + (charge_range * proportion)
+
+    @property
     def total_price(self):
         """
-        Returns the total price for all items in the order, after discounts.
+        Returns the total price for all items in the order, after discounts plus service charge.
         """
-        return (
-            sum([item.total_price for item in self.items.all()]) + self.service_charge
-        )
+        return self.subtotal + self.service_charge
 
     # TODO: Update this to use a more accurate delivery fee calculation
     @property
@@ -75,13 +107,6 @@ class Order(models.Model):
         if all(s == OrderItem.DeliveryStatus.DELIVERED for s in statuses):
             return "completed"
         return "pending"
-
-    @property
-    def service_charge(self):
-        """
-        Returns the service charge for the order.
-        """
-        return Decimal(600)  # Flat rate service charge of 600
 
     class Meta:
         verbose_name = "Order"

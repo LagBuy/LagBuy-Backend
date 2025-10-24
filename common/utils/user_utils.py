@@ -29,6 +29,8 @@ def send_user_exist_email(user_email, user_name=None):
             'site_name': 'LagBuy',
             'support_email': settings.SUPPORT_EMAIL,
             'login_url': settings.LOGIN_URL,
+            'buyer_login_url': settings.BUYER_LOGIN_URL,
+            'vendor_login_url': settings.VENDOR_LOGIN_URL,
         }
         
         # Render HTML email template

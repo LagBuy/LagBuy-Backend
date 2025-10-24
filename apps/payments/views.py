@@ -113,6 +113,9 @@ class VerifyPaymentView(APIView):
 
             # Only mark as PAID if the transaction status is 'success'
             if response.get("status", False) and data.get("status") == "success":
+                # Check if payment was already verified (to avoid sending duplicate emails)
+                was_already_verified = transaction.verified
+                
                 transaction.payment_status = PaymentStatus.PAID
                 transaction.verified = True
                 transaction.save(update_fields=["payment_status", "verified"])
@@ -137,6 +140,15 @@ class VerifyPaymentView(APIView):
                 user.cart.items.filter(
                     product__in=order.items.values_list("product", flat=True)
                 ).delete()
+                
+                # Send email notifications to vendor and admins only if payment wasn't already verified
+                if not was_already_verified:
+                    try:
+                        from common.utils.email_utils import notify_vendor_of_new_order, notify_admins_of_new_order
+                        notify_vendor_of_new_order(order)
+                        notify_admins_of_new_order(order)
+                    except Exception as e:
+                        logger.error(f"Error sending email notifications: {e}", exc_info=True)
 
             order = OrderSerializer(transaction.order).data
             return Response(
@@ -218,6 +230,9 @@ class WebhookView(APIView):
         if event_type == "charge.success":
             try:
                 payment = Payment.objects.get(ref=reference)
+                # Check if payment was already verified
+                was_already_verified = payment.verified
+                
                 payment.verified = True
                 payment.save()
 
@@ -253,6 +268,15 @@ class WebhookView(APIView):
                     user.cart.items.filter(
                         product__in=order.items.values_list("product", flat=True)
                     ).delete()
+                    
+                    # Send email notifications to vendor and admins only if payment wasn't already verified
+                    if not was_already_verified:
+                        try:
+                            from common.utils.email_utils import notify_vendor_of_new_order, notify_admins_of_new_order
+                            notify_vendor_of_new_order(order)
+                            notify_admins_of_new_order(order)
+                        except Exception as e:
+                            logger.error(f"Error sending email notifications in webhook: {e}", exc_info=True)
             except Payment.DoesNotExist as e:
                 logger.warning(
                     f"Payment.DoesNotExist in WebhookView._handle_event: {e}"

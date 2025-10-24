@@ -28,6 +28,8 @@ ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None  # Tell allauth there's no username
 
 FRONTEND_URL = 'https://shop.lagbuy.com/'
+VENDOR_URL = 'https://vendors.lagbuy.com/'
+RIDER_URL = 'https://riders.lagbuy.com/'
 
 ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
