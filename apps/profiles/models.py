@@ -25,7 +25,7 @@ class UsersProfile(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-    image = models.ImageField(upload_to="profile_image/", null=True, blank=True)
+    image = models.URLField(max_length=500, null=True, blank=True)
 
     # Relationships
     user = models.OneToOneField(
