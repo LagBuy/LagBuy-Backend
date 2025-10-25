@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from django.utils.log import DEFAULT_LOGGING
 
 from environs import Env
 
@@ -20,7 +21,7 @@ APPEND_SLASH = True  #
 MEDIA_URL = "/media/"  #
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
-ALLOWED_HOSTS = [".amazonaws.com", ".lagbuy.com", "172.31.46.206", "13.244.200.121", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [".compute.internal", ".amazonaws.com", ".lagbuy.com", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "userAuth.CustomUser"
 
@@ -260,6 +261,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGGING = DEFAULT_LOGGING
+LOGGING["loggers"]["django.security.DisallowedHost"] = {
+    "handlers": ["null"],
+    "propagate": False,
+}
 
 # Logging configuration
 # LOGGING = {
