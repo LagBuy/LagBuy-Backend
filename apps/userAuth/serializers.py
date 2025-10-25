@@ -24,7 +24,7 @@ class CustomRegisterSerializer(RegisterSerializer):
     first_name = serializers.CharField(max_length=225, required=True)
     last_name = serializers.CharField(max_length=225, required=True)
     phone_number = serializers.CharField(max_length=20, required=True)
-    image = serializers.ImageField(required=False, allow_null=True)
+    image = serializers.URLField(max_length=500, required=False, allow_null=True, allow_blank=True)
     address = serializers.CharField(max_length=225, required=False, allow_null=True)
     gender = serializers.CharField(max_length=20, required=False, allow_null=True)
     dob = serializers.DateField(required=False, allow_null=True)
@@ -34,6 +34,7 @@ class CustomRegisterSerializer(RegisterSerializer):
 
     # vendor profile
     business_name = serializers.CharField(max_length=225, required=False)
+    business_address = serializers.CharField(max_length=225, required=False)
     business_location_city = serializers.CharField(max_length=225, required=False)
     business_location_state = serializers.CharField(max_length=225, required=False)
 
@@ -115,6 +116,7 @@ class CustomRegisterSerializer(RegisterSerializer):
                     VendorsProfile.objects.create(
                         user=user,
                         business_name=self.validated_data.get('business_name', ''),
+                        business_address=self.validated_data.get('business_address', ''),
                         business_location_city=self.validated_data.get('business_location_city', ''),
                         business_location_state=self.validated_data.get('business_location_state', '')
                     )
