@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest.mock import patch, MagicMock
 import datetime
 
 from apps.profiles.models import UsersProfile, VendorsProfile, RidersProfile
@@ -219,5 +221,105 @@ class UserAPITest(TestCase):
         user_data = response.data["user"]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(user_data['email'], "testuser@gmail.com")
+
+
+@override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
+class ProfileImageTests(TestCase):
+    """Test cases for profile image URL field and upload functionality"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            email='imagetest@gmail.com',
+            password='user1234',
+        )
+        cls.userProfile = UsersProfile.objects.create(
+            user=cls.user,
+            first_name='image',
+            last_name='tester',
+            phone_number='08012345678',
+        )
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
+        cls.user.roles.add(cls.user_role)
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_user_with_image_url(self):
+        """Test creating a user with an image URL"""
+        url = reverse_lazy('rest_register')
+        data = {
+            "email": "newuser@test.com",
+            "password1": "testpassword123",
+            "first_name": "John",
+            "last_name": "Doe",
+            "phone_number": "08098765432",
+            "image": "https://example.com/profile.jpg",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user_data = response.data["user"]
+        self.assertEqual(user_data['user_profile']['image'], 'https://example.com/profile.jpg')
+
+    def test_update_profile_with_image_url(self):
+        """Test updating user profile with an image URL"""
+        url = reverse_lazy('rest_user_details')
+        data = {
+            'user_profile': {
+                'image': 'https://cdn.example.com/users/profile-pic.png',
+            }
+        }
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.user_profile.refresh_from_db()
+        self.assertEqual(self.user.user_profile.image, 'https://cdn.example.com/users/profile-pic.png')
+
+    @patch('common.services.storage.STORAGE.upload_file')
+    def test_upload_profile_image(self, mock_upload):
+        """Test image upload endpoint returns URL"""
+        mock_upload.return_value = 'https://storage.example.com/uploads/test-image.jpg'
+        
+        url = reverse_lazy('upload_profile_image')
+        image = SimpleUploadedFile(
+            "test_image.jpg",
+            b"fake image content",
+            content_type="image/jpeg"
+        )
+        response = self.client.post(url, {'image': image}, format='multipart')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('url', response.data)
+        self.assertEqual(response.data['url'], 'https://storage.example.com/uploads/test-image.jpg')
+        mock_upload.assert_called_once()
+
+    @patch('common.services.storage.STORAGE.upload_file')
+    def test_upload_profile_image_no_file(self, mock_upload):
+        """Test image upload endpoint with no file provided"""
+        url = reverse_lazy('upload_profile_image')
+        response = self.client.post(url, {}, format='multipart')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', response.data)
+        self.assertEqual(response.data['detail'], 'No image file provided.')
+        mock_upload.assert_not_called()
+
+    @patch('common.services.storage.STORAGE.upload_file')
+    def test_upload_profile_image_failure(self, mock_upload):
+        """Test image upload endpoint when storage fails"""
+        mock_upload.return_value = None
+        
+        url = reverse_lazy('upload_profile_image')
+        image = SimpleUploadedFile(
+            "test_image.jpg",
+            b"fake image content",
+            content_type="image/jpeg"
+        )
+        response = self.client.post(url, {'image': image}, format='multipart')
+        
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn('detail', response.data)
+        self.assertEqual(response.data['detail'], 'Failed to upload image.')
+
 
 
