@@ -55,7 +55,7 @@ class CartItem(models.Model):
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"{self.quantity} of {self.product.name} in {self.cart.user.username}'s cart"
+        return f"{self.quantity} of {self.product.name} in {self.cart.user.user_profile.first_name}'s cart"
 
     @property
     def total_price(self):
