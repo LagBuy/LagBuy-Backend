@@ -1,0 +1,261 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div class="module" style="margin-bottom: 20px;">
+    <h2>Orders Analytics Dashboard</h2>
+    
+    <!-- Overview Cards Row 1 - Order Counts -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Total Orders Card -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #417690;">Total Orders</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #333;">{{ total_orders }}</p>
+        </div>
+        
+        <!-- New Orders Today Card -->
+        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2e7d32;">New Today</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #1b5e20;">{{ new_orders_today }}</p>
+        </div>
+        
+        <!-- Orders Last 7 Days Card -->
+        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #1565c0;">Last 7 Days</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #0d47a1;">{{ orders_last_7_days }}</p>
+        </div>
+        
+        <!-- Orders Last 30 Days Card -->
+        <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #6a1b9a;">Last 30 Days</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #4a148c;">{{ orders_last_30_days }}</p>
+        </div>
+    </div>
+    
+    <!-- Overview Cards Row 2 - Payment & Delivery Status -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Paid Orders Card -->
+        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2e7d32;">✓ Paid Orders</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #1b5e20;">{{ paid_orders }}</p>
+        </div>
+        
+        <!-- Unpaid Orders Card -->
+        <div style="background: #ffebee; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #c62828;">✗ Unpaid Orders</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #b71c1c;">{{ unpaid_orders }}</p>
+        </div>
+        
+        <!-- Completed Deliveries Card -->
+        <div style="background: #e0f2f1; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #00695c;">✓ Delivered</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #004d40;">{{ completed_deliveries }}</p>
+        </div>
+        
+        <!-- Pending Deliveries Card -->
+        <div style="background: #fff3e0; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #e65100;">⏳ Pending</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #bf360c;">{{ pending_deliveries }}</p>
+        </div>
+    </div>
+    
+    <!-- Overview Cards Row 3 - Revenue -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Total Revenue Card -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; min-width: 250px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: white;">💰 Total Revenue</h3>
+            <p style="font-size: 28px; font-weight: bold; margin: 0; color: white;">₦{{ total_revenue|floatformat:2 }}</p>
+        </div>
+        
+        <!-- Revenue Today Card -->
+        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: white;">Today</h3>
+            <p style="font-size: 28px; font-weight: bold; margin: 0; color: white;">₦{{ revenue_today|floatformat:2 }}</p>
+        </div>
+        
+        <!-- Revenue Last 7 Days Card -->
+        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: white;">Last 7 Days</h3>
+            <p style="font-size: 28px; font-weight: bold; margin: 0; color: white;">₦{{ revenue_last_7_days|floatformat:2 }}</p>
+        </div>
+        
+        <!-- Revenue Last 30 Days Card -->
+        <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: white;">Last 30 Days</h3>
+            <p style="font-size: 28px; font-weight: bold; margin: 0; color: white;">₦{{ revenue_last_30_days|floatformat:2 }}</p>
+        </div>
+    </div>
+    
+    <!-- Overview Cards Row 4 - Additional Metrics -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Pending Revenue Card -->
+        <div style="background: #fff9c4; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #f57f17;">Pending Revenue</h3>
+            <p style="font-size: 28px; font-weight: bold; margin: 0; color: #f57f17;">₦{{ pending_revenue|floatformat:2 }}</p>
+        </div>
+        
+        <!-- Total Items Sold Card -->
+        <div style="background: #e1bee7; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #6a1b9a;">Total Items Sold</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #4a148c;">{{ total_items }}</p>
+        </div>
+        
+        <!-- Items Ready for Pickup Card -->
+        <div style="background: #b2dfdb; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #00695c;">📦 Ready for Pickup</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #004d40;">{{ items_ready_for_pickup }}</p>
+        </div>
+    </div>
+    
+    <!-- Alert Section -->
+    {% if orders_need_attention > 0 %}
+    <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px 0; color: #856404;">⚠️ Attention Required</h3>
+        <p style="margin: 0; color: #856404; font-size: 16px;">
+            <strong>{{ orders_need_attention }}</strong> order(s) require attention (unpaid or pending delivery)
+        </p>
+    </div>
+    {% endif %}
+    
+    <!-- Statistics Tables -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Daily Orders & Revenue (Last 7 Days) Section -->
+        <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Orders & Revenue (Last 7 Days)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Date</th>
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Day</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Orders</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for daily_stat in daily_stats %}
+                    <tr {% if daily_stat.date == today|date:'Y-m-d' %}style="background: #e3f2fd;"{% endif %}>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.date }}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.day }}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            {% if daily_stat.count > 0 %}
+                            <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ daily_stat.count }}
+                            </span>
+                            {% else %}
+                            <span style="color: #999;">0</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold; color: #2e7d32;">
+                            ₦{{ daily_stat.revenue|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Item Delivery Status Section -->
+        <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Items by Delivery Status</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Status</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>⏳ Pending</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #ffc107; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ items_pending }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>🚚 Shipped</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #17a2b8; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ items_shipped }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>✓ Delivered</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #28a745; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ items_delivered }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>↩ Returned</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #dc3545; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ items_returned }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Top Buyers Section -->
+    <div style="margin: 20px 0;">
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Top 5 Buyers</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Rank</th>
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Buyer</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Orders</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Total Spent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for buyer_stat in buyer_stats %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong style="color: #417690;">#{{ forloop.counter }}</strong>
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ buyer_stat.name }}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ buyer_stat.order_count }}
+                            </span>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold; color: #2e7d32;">
+                            ₦{{ buyer_stat.total_spent|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="padding: 8px; text-align: center; color: #999;">
+                            No buyers found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}
