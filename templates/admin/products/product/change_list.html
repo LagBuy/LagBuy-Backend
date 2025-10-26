@@ -1,0 +1,197 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div class="module" style="margin-bottom: 20px;">
+    <h2>Product Analytics Dashboard</h2>
+    
+    <!-- Overview Cards Row 1 -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Total Products Card -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #417690;">Total Products</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #333;">{{ total_products }}</p>
+        </div>
+        
+        <!-- New Products Today Card -->
+        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2e7d32;">New Today</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #1b5e20;">{{ new_products_today }}</p>
+        </div>
+        
+        <!-- Out of Stock Card -->
+        <div style="background: #ffebee; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #c62828;">Out of Stock</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #b71c1c;">{{ out_of_stock_products }}</p>
+        </div>
+        
+        <!-- Low Stock Card -->
+        <div style="background: #fff3e0; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #e65100;">Low Stock (≤10)</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #bf360c;">{{ low_stock_products }}</p>
+        </div>
+    </div>
+    
+    <!-- Overview Cards Row 2 -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Verified Products Card -->
+        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #1565c0;">Verified Products</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #0d47a1;">{{ verified_products }}</p>
+        </div>
+        
+        <!-- Unverified Products Card -->
+        <div style="background: #fce4ec; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #ad1457;">Unverified</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #880e4f;">{{ unverified_products }}</p>
+        </div>
+        
+        <!-- Average Price Card -->
+        <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #6a1b9a;">Average Price</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #4a148c;">₦{{ avg_price }}</p>
+        </div>
+        
+        <!-- Total Inventory Value Card -->
+        <div style="background: #e0f2f1; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #00695c;">Total Inventory Value</h3>
+            <p style="font-size: 24px; font-weight: bold; margin: 0; color: #004d40;">₦{{ total_inventory_value|floatformat:2 }}</p>
+        </div>
+    </div>
+    
+    <!-- Soft Deleted Products Section -->
+    <div style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-left: 4px solid #757575; border-radius: 4px;">
+        <h3 style="margin: 0 0 15px 0; color: #424242;">🗑️ Soft Deleted Products</h3>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <!-- Total Soft Deleted Card -->
+            <div style="background: white; padding: 15px 20px; border-radius: 8px; min-width: 180px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h4 style="margin: 0 0 8px 0; color: #616161; font-size: 14px; font-weight: normal;">Total Deleted</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 0; color: #424242;">{{ soft_deleted_products }}</p>
+            </div>
+            
+            <!-- Deleted Today Card -->
+            <div style="background: white; padding: 15px 20px; border-radius: 8px; min-width: 180px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h4 style="margin: 0 0 8px 0; color: #616161; font-size: 14px; font-weight: normal;">Deleted Today</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 0; color: #424242;">{{ soft_deleted_today }}</p>
+            </div>
+            
+            <!-- Deleted Last 7 Days Card -->
+            <div style="background: white; padding: 15px 20px; border-radius: 8px; min-width: 180px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h4 style="margin: 0 0 8px 0; color: #616161; font-size: 14px; font-weight: normal;">Deleted (Last 7 Days)</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 0; color: #424242;">{{ soft_deleted_last_7_days }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Tables -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- New Products Per Day (Last 7 Days) Section -->
+        <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">New Products (Last 7 Days)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Date</th>
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Day</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">New Products</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for daily_stat in daily_stats %}
+                    <tr {% if daily_stat.date == today|date:'Y-m-d' %}style="background: #e3f2fd;"{% endif %}>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.date }}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.day }}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            {% if daily_stat.count > 0 %}
+                            <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ daily_stat.count }}
+                            </span>
+                            {% else %}
+                            <span style="color: #999;">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Top Categories Section -->
+        <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Products by Category (Top 10)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Category</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Products</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category_stat in category_stats %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>{{ category_stat.name|title }}</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #417690; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ category_stat.count }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" style="padding: 8px; text-align: center; color: #999;">
+                            No categories found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Top Sellers Section -->
+    <div style="margin: 20px 0;">
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Top 5 Sellers (Most Products)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Rank</th>
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Seller</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Products</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for seller_stat in seller_stats %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong style="color: #417690;">#{{ forloop.counter }}</strong>
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ seller_stat.name }}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ seller_stat.count }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="padding: 8px; text-align: center; color: #999;">
+                            No sellers found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

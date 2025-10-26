@@ -1,0 +1,93 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div class="module" style="margin-bottom: 20px;">
+    <h2>User Statistics</h2>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Total Users Card -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #417690;">Total Users</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #333;">{{ total_users }}</p>
+        </div>
+        
+        <!-- New Users Today Card -->
+        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #2e7d32;">New Users Today</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #1b5e20;">{{ new_users_today }}</p>
+        </div>
+        
+        <!-- New Users Last 30 Days Card -->
+        <div style="background: #fff3e0; padding: 20px; border-radius: 8px; min-width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #e65100;">Last 30 Days</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 0; color: #bf360c;">{{ new_users_last_30_days }}</p>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+        <!-- Users by Role Section -->
+        <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">Users by Role</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Role</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role_stat in roles_stats %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            <strong>{{ role_stat.name|title }}</strong>
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            <span style="background: #417690; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ role_stat.count }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- New Users Per Day (Last 7 Days) Section -->
+        <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #417690;">New Users (Last 7 Days)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Date</th>
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Day</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">New Users</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for daily_stat in daily_stats %}
+                    <tr {% if daily_stat.date == today|date:'Y-m-d' %}style="background: #e3f2fd;"{% endif %}>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.date }}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                            {{ daily_stat.day }}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">
+                            {% if daily_stat.count > 0 %}
+                            <span style="background: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                {{ daily_stat.count }}
+                            </span>
+                            {% else %}
+                            <span style="color: #999;">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

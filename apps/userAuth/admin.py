@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
 from .models import CustomUser, Role
 from .forms import CustomUserChangeForm, CustomUserCreationForm
 
@@ -43,6 +46,58 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email',)
     ordering = ('email',)
     filter_horizontal = ('groups', 'user_permissions', 'roles')
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist view to add user statistics"""
+        extra_context = extra_context or {}
+        
+        # Get total users
+        total_users = CustomUser.objects.count()
+        
+        # Get users by role
+        roles_stats = []
+        roles = Role.objects.all()
+        for role in roles:
+            count = CustomUser.objects.filter(roles=role).count()
+            roles_stats.append({
+                'name': role.name,
+                'count': count
+            })
+        
+        # Get users with no roles
+        no_role_count = CustomUser.objects.filter(roles__isnull=True).count()
+        if no_role_count > 0:
+            roles_stats.append({
+                'name': 'No Role',
+                'count': no_role_count
+            })
+        
+        # Get new users today
+        today = timezone.now().date()
+        new_users_today = CustomUser.objects.filter(created_at__date=today).count()
+        
+        # Get new users in the last 7 days (daily breakdown)
+        daily_stats = []
+        for i in range(6, -1, -1):  # Last 7 days including today
+            date = today - timedelta(days=i)
+            count = CustomUser.objects.filter(created_at__date=date).count()
+            daily_stats.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'day': date.strftime('%A'),
+                'count': count
+            })
+        
+        # Get new users in the last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        new_users_last_30_days = CustomUser.objects.filter(created_at__gte=thirty_days_ago).count()
+        
+        extra_context['total_users'] = total_users
+        extra_context['roles_stats'] = roles_stats
+        extra_context['new_users_today'] = new_users_today
+        extra_context['daily_stats'] = daily_stats
+        extra_context['new_users_last_30_days'] = new_users_last_30_days
+        
+        return super().changelist_view(request, extra_context=extra_context)
 
     def get_full_name(self, obj):
         """Display user's full name from their profile"""
