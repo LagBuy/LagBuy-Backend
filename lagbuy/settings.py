@@ -20,6 +20,10 @@ APPEND_SLASH = True  #
 MEDIA_URL = "/media/"  #
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+
 ALLOWED_HOSTS = [".compute.internal", ".amazonaws.com", ".lagbuy.com", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "userAuth.CustomUser"
