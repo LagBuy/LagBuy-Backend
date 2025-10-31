@@ -57,7 +57,7 @@ class StorageService:
             image = Image.open(file_obj)
         except Exception as e:
             logger.error(f"Failed to open image: {e}")
-            return None
+            raise e
 
         buffer = BytesIO()
 
@@ -129,7 +129,7 @@ class StorageService:
                 content_type = content_type or f"image/{chosen_ext}"
         except Exception as e:
             logger.error(f"Failed to process and save image: {e}")
-            return None
+            raise e
 
         buffer.seek(0)
 
@@ -144,7 +144,7 @@ class StorageService:
             return self.get_file_url(random_name)
         except ClientError as e:
             logger.error(f"Failed to upload file {random_name} to S3: {e}")
-            return None
+            raise e
 
     def get_file_url(self, file_name):
         """Returns the public S3 URL for a given file name."""

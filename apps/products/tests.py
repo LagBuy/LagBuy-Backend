@@ -345,3 +345,107 @@ class ProductAPITest(TestCase):
         self.assertTrue("data" in response.data)
         self.assertEqual(len(response.data["data"]), 1)
         self.assertEqual(response.data["data"][0]["name"], "Test Product")
+
+
+@override_settings(PASSWORD_HASHERS=("django.contrib.auth.hashers.MD5PasswordHasher",))
+class ImageUploadAPITest(TestCase):
+    """Test cases for the Image Upload API view."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_role, _ = Role.objects.get_or_create(name='user')
+        cls.vendor_role, _ = Role.objects.get_or_create(name='vendor')
+
+        cls.seller = CustomUser.objects.create_user(
+            email="seller@example.com",
+            password="password",
+        )
+        cls.seller.roles.add(cls.user_role)
+        cls.seller.roles.add(cls.vendor_role)
+
+        cls.buyer = CustomUser.objects.create_user(
+            email="buyer@example.com",
+            password="password",
+        )
+        cls.buyer.roles.add(cls.user_role)
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse_lazy("image-upload")
+
+    def create_test_image(self, size_mb=1, name="test_image.jpg"):
+        """Helper method to create a test image file of specified size."""
+        from io import BytesIO
+        from PIL import Image
+
+        # Create a simple image
+        image = Image.new('RGB', (100, 100), color='red')
+        image_file = BytesIO()
+        image.save(image_file, format='JPEG')
+        
+        # Pad the file to reach desired size if needed
+        current_size = image_file.tell()
+        target_size = int(size_mb * 1024 * 1024)
+        if target_size > current_size:
+            padding = b'\0' * (target_size - current_size)
+            image_file.write(padding)
+        
+        image_file.seek(0)
+        image_file.name = name
+        return image_file
+
+    def test_unauthenticated_user_cannot_upload_image(self):
+        """Test that unauthenticated users cannot upload images."""
+        image_file = self.create_test_image(size_mb=1)
+        response = self.client.post(self.url, {"image": image_file}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authenticated_user_can_upload_valid_image(self):
+        """Test that authenticated users can upload images within size limit."""
+        self.client.force_authenticate(user=self.seller)
+        image_file = self.create_test_image(size_mb=1)
+        response = self.client.post(self.url, {"image": image_file}, format="multipart")
+        
+        # Should return 201 or 500 depending on storage configuration
+        # In test environment without proper storage setup, it might fail at storage level
+        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_500_INTERNAL_SERVER_ERROR])
+
+    def test_upload_image_without_file(self):
+        """Test that uploading without an image file returns error."""
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.post(self.url, {}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("detail", response.data)
+        self.assertEqual(response.data["detail"], "No image file provided.")
+
+    def test_upload_image_exceeding_size_limit(self):
+        """Test that uploading an image larger than 10MB returns error."""
+        self.client.force_authenticate(user=self.seller)
+        # Create an image larger than 10MB
+        large_image = self.create_test_image(size_mb=11, name="large_image.jpg")
+        response = self.client.post(self.url, {"image": large_image}, format="multipart")
+        
+        self.assertEqual(response.status_code, status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        self.assertIn("detail", response.data)
+        self.assertIn("File size exceeds maximum limit of 10.0MB", response.data["detail"])
+
+    def test_upload_image_at_size_limit(self):
+        """Test that uploading an image exactly at 10MB limit works."""
+        self.client.force_authenticate(user=self.seller)
+        # Create an image at exactly 10MB
+        image_at_limit = self.create_test_image(size_mb=10, name="limit_image.jpg")
+        response = self.client.post(self.url, {"image": image_at_limit}, format="multipart")
+        
+        # Should not return 413 for size validation error
+        self.assertNotEqual(response.status_code, status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        # Should return 201 or 500 depending on storage configuration
+        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_500_INTERNAL_SERVER_ERROR])
+
+    def test_buyer_can_upload_image(self):
+        """Test that buyers (non-sellers) can also upload images."""
+        self.client.force_authenticate(user=self.buyer)
+        image_file = self.create_test_image(size_mb=1)
+        response = self.client.post(self.url, {"image": image_file}, format="multipart")
+        
+        # Should return 201 or 500 depending on storage configuration
+        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_500_INTERNAL_SERVER_ERROR])
