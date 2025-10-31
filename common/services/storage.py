@@ -52,89 +52,25 @@ class StorageService:
         Compresses and uploads an image file to S3 with a random name to prevent clashes.
         If file_name is provided, it uses the same extension; otherwise, defaults to .jpg.
         """
-        # Generate a random file name and pick an appropriate extension/format
+        # Generate a random file name with the same extension
+        ext = ""
+        if file_name and "." in file_name:
+            ext = file_name.split(".")[-1]
+        else:
+            ext = "jpg"
+        random_name = f"{uuid.uuid4().hex}.{ext}"
+
+        # Compress the image using PIL
         try:
             image = Image.open(file_obj)
+            buffer = BytesIO()
+            # Save as JPEG with quality=75
+            image.save(buffer, format="JPEG", quality=75, optimize=True)
+            buffer.seek(0)
+            content_type = content_type or "image/jpeg"
         except Exception as e:
-            logger.error(f"Failed to open image: {e}")
-            raise e
-        
-        buffer = BytesIO()
-
-        # Determine original image format and choose a safe target format
-        original_format = (image.format or "JPEG").upper()
-        # Prefer preserving these formats; otherwise fall back to JPEG
-        supported_formats = {"JPEG", "JPG", "PNG", "WEBP", "GIF", "BMP", "TIFF"}
-        target_format = (
-            original_format if original_format in supported_formats else "JPEG"
-        )
-
-        # Handle alpha channel if converting to a format that doesn't support it (e.g., JPEG)
-        try:
-            if target_format in {"JPEG", "JPG"}:
-                if image.mode in ("RGBA", "LA") or (
-                    image.mode == "P" and "transparency" in image.info
-                ):
-                    # Flatten transparency onto white background
-                    background = Image.new("RGB", image.size, (255, 255, 255))
-                    background.paste(
-                        image.convert("RGBA"), mask=image.convert("RGBA").split()[-1]
-                    )
-                    save_image = background
-                else:
-                    save_image = image.convert("RGB")
-                save_image.save(buffer, format="JPEG", quality=75, optimize=True)
-                chosen_ext = "jpg"
-                content_type = content_type or "image/jpeg"
-            elif target_format == "PNG":
-                save_image = (
-                    image.convert("RGBA")
-                    if image.mode in ("RGBA", "LA", "P")
-                    else image.convert("RGB")
-                )
-                save_image.save(buffer, format="PNG", optimize=True)
-                chosen_ext = "png"
-                content_type = content_type or "image/png"
-            elif target_format == "WEBP":
-                save_image = (
-                    image.convert("RGBA")
-                    if image.mode in ("RGBA", "LA", "P")
-                    else image.convert("RGB")
-                )
-                save_image.save(buffer, format="WEBP", quality=75, method=6)
-                chosen_ext = "webp"
-                content_type = content_type or "image/webp"
-            elif target_format == "GIF":
-                # For GIFs, if animated, keep only the first frame to avoid complexity
-                try:
-                    image.seek(0)
-                except Exception:
-                    pass
-                frame = image.convert("RGBA")
-                frame.save(buffer, format="GIF")
-                chosen_ext = "gif"
-                content_type = content_type or "image/gif"
-            else:
-                # BMP, TIFF or unknown supported formats - save using original format where possible
-                save_format = target_format
-                try:
-                    image.save(buffer, format=save_format)
-                except Exception:
-                    # fallback to JPEG
-                    image.convert("RGB").save(
-                        buffer, format="JPEG", quality=75, optimize=True
-                    )
-                    save_format = "JPEG"
-                chosen_ext = save_format.lower()
-                content_type = content_type or f"image/{chosen_ext}"
-        except Exception as e:
-            logger.error(f"Failed to process and save image: {e}")
-            raise e
-
-        buffer.seek(0)
-
-        # Build a random filename using the chosen extension
-        random_name = f"{uuid.uuid4().hex}.{chosen_ext}"
+            logger.error(f"Failed to compress image: {e}")
+            return None
 
         extra_args = {"ContentType": content_type} if content_type else {}
         try:
@@ -144,7 +80,7 @@ class StorageService:
             return self.get_file_url(random_name)
         except ClientError as e:
             logger.error(f"Failed to upload file {random_name} to S3: {e}")
-            raise e
+            return None
 
     def get_file_url(self, file_name):
         """Returns the public S3 URL for a given file name."""
