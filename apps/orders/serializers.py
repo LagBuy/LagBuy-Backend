@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.cart.models import Cart
 from apps.userAuth.models import CustomUser
 from .models import Order, OrderItem
 
@@ -69,7 +70,8 @@ class OrderSerializer(serializers.ModelSerializer):
             """Ensure user has at least one of the vendor's product in his cart"""
             buyer = self.context["request"].user
             vendor = data.get("vendor")
-            if not buyer.cart.items.filter(product__seller=vendor).exists():
+            cart, _ = Cart.objects.get_or_create(user=buyer)
+            if not cart.items.filter(product__seller=vendor).exists():
                 raise serializers.ValidationError(
                     "Your cart does not contain any products from this vendor."
                 )
@@ -80,7 +82,7 @@ class OrderSerializer(serializers.ModelSerializer):
         """get items from user's cart and create order and order items."""
         buyer = self.context["request"].user
         vendor = validated_data.pop("vendor")
-        cart = buyer.cart
+        cart, _ = Cart.objects.get_or_create(user=buyer)
 
         order = Order.objects.create(buyer=buyer, **validated_data)
         for cart_item in cart.items.filter(product__seller=vendor):

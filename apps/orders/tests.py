@@ -113,6 +113,73 @@ class OrderAPITest(TestCase):
         self.assertEqual(order_data["items"][str(self.seller.id)][0]["quantity"], 2)
         self.assertIn(order_data["delivery_status"], ["pending", "completed"])
 
+    def test_create_order_without_existing_cart(self):
+        """Test creating an order when user doesn't have a cart yet."""
+        # Create a new buyer without a cart
+        new_buyer = CustomUser.objects.create_user(
+            email="newbuyer@example.com",
+            password="password",
+        )
+        new_buyer.roles.add(self.user_role)
+        
+        # Authenticate as the new buyer
+        self.client.force_authenticate(user=new_buyer)
+        
+        # Verify no cart exists
+        self.assertFalse(Cart.objects.filter(user=new_buyer).exists())
+        
+        # Create cart items manually (simulating cart creation)
+        new_cart = Cart.objects.create(user=new_buyer)
+        CartItem.objects.create(
+            cart=new_cart, product=self.product, quantity=1
+        )
+        
+        url = reverse_lazy("orders")
+        data = {
+            "vendor": str(self.seller.id),
+            "delivery_address": "789 Auto Cart St",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify cart was created/used
+        self.assertTrue(Cart.objects.filter(user=new_buyer).exists())
+        order_data = response.data["data"]
+        self.assertEqual(order_data["buyer"], new_buyer.id)
+
+    def test_create_order_auto_creates_cart_if_missing(self):
+        """Test that order creation auto-creates a cart if user doesn't have one."""
+        # Create a new buyer
+        new_buyer = CustomUser.objects.create_user(
+            email="autobuyer@example.com",
+            password="password",
+        )
+        new_buyer.roles.add(self.user_role)
+        
+        # Delete cart if it exists (shouldn't exist, but just to be sure)
+        Cart.objects.filter(user=new_buyer).delete()
+        
+        # Authenticate as the new buyer
+        self.client.force_authenticate(user=new_buyer)
+        
+        # Verify no cart exists initially
+        self.assertFalse(Cart.objects.filter(user=new_buyer).exists())
+        
+        url = reverse_lazy("orders")
+        data = {
+            "vendor": str(self.seller.id),
+            "delivery_address": "Empty Cart St",
+        }
+        
+        # This should not fail even though cart doesn't exist
+        # The serializer should create it automatically
+        response = self.client.post(url, data, format="json")
+        
+        # Verify cart was auto-created
+        self.assertTrue(Cart.objects.filter(user=new_buyer).exists())
+        cart = Cart.objects.get(user=new_buyer)
+        self.assertEqual(cart.user, new_buyer)
+
     def test_purchase_price_recorded(self):
         """Test that the purchase price is recorded correctly when an order is created."""
         url = reverse_lazy("orders")
