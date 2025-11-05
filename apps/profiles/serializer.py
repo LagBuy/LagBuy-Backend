@@ -21,6 +21,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class VendorProfileSerializer(serializers.ModelSerializer):
+    # return the vendor owner's profile image (UsersProfile.image)
+    image = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = VendorsProfile
         fields = (
@@ -29,10 +31,23 @@ class VendorProfileSerializer(serializers.ModelSerializer):
             "business_location_city",
             "business_location_state",
             "is_verified",
+            "image",
         )
         read_only_fields = [
             "is_verified",
+            "image",
         ]
+
+    def get_image(self, obj):
+        """Return the related user's profile image URL if available."""
+        # VendorsProfile -> user (CustomUser) -> user_profile (UsersProfile)
+        user = getattr(obj, "user", None)
+        if not user:
+            return None
+        profile = getattr(user, "user_profile", None)
+        if not profile:
+            return None
+        return profile.image
 
 
 class RiderProfileSerializer(serializers.ModelSerializer):
