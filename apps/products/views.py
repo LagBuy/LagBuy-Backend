@@ -164,6 +164,7 @@ class ImageUploadView(APIView):
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
     def post(self, request, *args, **kwargs):
         try:
@@ -172,6 +173,14 @@ class ImageUploadView(APIView):
                 return Response(
                     {"detail": "No image file provided."},
                     status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate file size
+            if uploaded_image.size > self.MAX_FILE_SIZE:
+                max_size_mb = self.MAX_FILE_SIZE / (1024 * 1024)
+                return Response(
+                    {"detail": f"File size exceeds maximum limit of {max_size_mb}MB."},
+                    status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 )
 
             file_url = STORAGE.upload_file(

@@ -20,7 +20,11 @@ APPEND_SLASH = True  #
 MEDIA_URL = "/media/"  #
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  #
 
-ALLOWED_HOSTS = ["0.0.0.0", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+
+ALLOWED_HOSTS = [".compute.internal", ".amazonaws.com", ".lagbuy.com", ".elasticbeanstalk.com", "localhost", "127.0.0.1"]
 
 AUTH_USER_MODEL = "userAuth.CustomUser"
 
@@ -126,16 +130,34 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
-CORS_ORIGIN_WHITELIST = (
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-    "http://0.0.0.0:8000",  # TODO: Set this to the frontend URL
-)
+# CORS / CSRF: allow only the production LagBuy domains
+CORS_ALLOWED_ORIGINS = [
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://0.0.0.0:5173",
-    "http://0.0.0.0:3000",
-]  # TODO: Set this to the frontend URL
+    "https://lagbuy.com",
+    "https://shop.lagbuy.com",
+    "https://vendors.lagbuy.com",
+    "https://riders.lagbuy.com",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 ROOT_URLCONF = "lagbuy.urls"
 
@@ -243,31 +265,43 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Logging configuration
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
-        "simple": {"format": "%(levelname)s %(message)s"},
-    },
-    "handlers": {
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "debug.log"),
-            "formatter": "verbose",
-        },
-    },
-    "root": {
-        "handlers": ["file"],
-        "level": "DEBUG",
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": True,
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'null': {'class': 'logging.NullHandler'}},
+    'loggers': {
+        'django.security.DisallowedHost': {
+            'handlers': ['null'],
+            'propagate': False,
         },
     },
 }
+
+# Logging configuration
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "formatters": {
+#         "verbose": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+#         "simple": {"format": "%(levelname)s %(message)s"},
+#     },
+#     "handlers": {
+#         "file": {
+#             "level": "DEBUG",
+#             "class": "logging.FileHandler",
+#             "filename": os.path.join(BASE_DIR, "debug.log"),
+#             "formatter": "verbose",
+#         },
+#     },
+#     "root": {
+#         "handlers": ["file"],
+#         "level": "DEBUG",
+#     },
+#     "loggers": {
+#         "django": {
+#             "handlers": ["file"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#     },
+# }

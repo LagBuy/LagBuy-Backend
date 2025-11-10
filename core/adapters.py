@@ -28,9 +28,10 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         """
         Override to ensure HTML email is sent on both signup and resend.
         """
+        activate_url = self.get_email_confirmation_url(request, emailconfirmation)
         ctx = {
             "user": emailconfirmation.email_address.user,
-            "activate_url": self.get_email_confirmation_url(request, emailconfirmation),
+            "activate_url": activate_url,
             "key": emailconfirmation.key,
             'site_name': settings.SITE_NAME,
         }

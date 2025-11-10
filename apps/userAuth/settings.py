@@ -32,7 +32,7 @@ VENDOR_URL = 'https://vendors.lagbuy.com/'
 RIDER_URL = 'https://riders.lagbuy.com/'
 
 ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory' if not os.getenv("DEBUG") else 'optional'
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 1
 
 SITE_ID = 1
