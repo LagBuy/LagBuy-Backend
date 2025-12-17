@@ -5,7 +5,9 @@ from .views import (
     UpdateVendorBankDetailsView,
     ViewVendorProfileViewSet,
     FavouriteVendor,
-    CheckBusinessNameExists
+    CheckBusinessNameExists,
+    VerifyPhoneNumberView,
+    CheckPhoneNumberExists
 )
 
 ViewVendorProfileViewSet = extend_schema_view(
@@ -47,5 +49,15 @@ urlpatterns = [
         "vendors/check-business-name/",
         business_name_check,
         name="check-business-name",
+    ),
+    path(
+        "verify-phone/",
+        VerifyPhoneNumberView.as_view(),
+        name="verify-phone",
+    ),
+    path(
+        "check-phone/",
+        CheckPhoneNumberExists.as_view(),
+        name="check-phone",
     ),
 ]

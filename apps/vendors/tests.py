@@ -34,7 +34,7 @@ class VendorDashboardTest(TestCase):
             user=cls.user,
             first_name="Buyer",
             last_name="Test",
-            phone_number="0909222002",
+            phone_number="0909444444",
         )
         cls.seller = CustomUser.objects.create_user(
             email="test@seller.com", password="testpassword"

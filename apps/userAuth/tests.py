@@ -84,7 +84,7 @@ class UserAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
+            "phone_number": "08099999999",
             "gender": "male",
             "dob": "2025-06-09",
         }
@@ -97,7 +97,7 @@ class UserAPITest(TestCase):
         self.assertIsNotNone(user_data['user_profile'])
         self.assertEqual(user_data['user_profile']['first_name'], 'string')
         self.assertEqual(user_data['user_profile']['last_name'], 'string')
-        self.assertEqual(user_data['user_profile']['phone_number'], '08012345678')
+        self.assertEqual(user_data['user_profile']['phone_number'], '08099999999')
         self.assertEqual(user_data['user_profile']['gender'], 'male')
         self.assertIsNone(user_data['vendor_profile'])
         self.assertIsNone(user_data['rider_profile'])
@@ -254,7 +254,7 @@ class ProfileImageTests(TestCase):
             "password1": "testpassword123",
             "first_name": "John",
             "last_name": "Doe",
-            "phone_number": "08098765432",
+            "phone_number": "08088888888",
             "image": "https://example.com/profile.jpg",
         }
         response = self.client.post(url, data, format="json")
