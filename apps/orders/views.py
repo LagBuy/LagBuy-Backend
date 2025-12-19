@@ -14,6 +14,8 @@ from .serializers import (
     OrderItemStatusUpdateSerializer,
     SellerOrderItemSerializer,
 )
+from apps.notifications.utils import create_notification
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,14 @@ class OrderListCreateView(APIView):
                 data=request.data, context={"request": request}
             )
             if serializer.is_valid():
-                serializer.save()
+                order = serializer.save()
+                # Send notification after successful order creation
+                create_notification(
+                    user=request.user,
+                    title="Order Placed",
+                    message=f"Your order #{order.id} has been successfully placed!",
+                    notification_type="order",
+                )
                 return success_response(
                     message="Order created successfully.",
                     data=serializer.data,

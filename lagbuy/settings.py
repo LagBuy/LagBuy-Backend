@@ -70,7 +70,7 @@ INSTALLED_APPS = [
     # local
     "apps.userAuth",
     "apps.products",
-    "apps.orders",
+    #"apps.orders",
     "apps.cart",
     "apps.reviews",
     "apps.coupons",
@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     "apps.profiles",
     "apps.payments",
     "apps.notifications",
+    "apps.orders.apps.OrdersConfig",
     "common",
     "core",
 ]
