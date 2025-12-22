@@ -51,7 +51,7 @@ class Payment(models.Model):
         ordering = ["created_at"]
 
     def __str__(self):
-        return f"Payment of N{self.amount} made by {self.user.user_profile.first_name or 'Unknown'} [{self.payment_status}]"
+        return f"Payment of N{self.amount} made by {self.user.user_profile.first_name if self.user and self.user.user_profile else 'Unknown'} [{self.payment_status}]"
 
     def verify_payment(self):
         """
