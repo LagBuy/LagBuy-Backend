@@ -55,6 +55,12 @@ class CustomRegisterSerializer(RegisterSerializer):
     account_name = serializers.CharField(max_length=225, required=False)
 
 
+    def validate_phone_number(self, value):
+        """Validate that the phone number is not already registered"""
+        if UsersProfile.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("This phone number is already registered.")
+        return value
+
     def validate(self, data):
         """Override the default behaviour of checking for
         password1 and password2"""

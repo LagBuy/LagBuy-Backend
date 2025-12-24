@@ -17,6 +17,8 @@ class UsersProfile(models.Model):
     first_name = models.CharField(max_length=225)
     last_name = models.CharField(max_length=225)
     phone_number = models.CharField(max_length=20, null=False)
+    is_phone_verified = models.BooleanField(default=False)
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
     gender = models.CharField(max_length=20, null=True)
     dob = models.DateField(null=True)
     state = models.CharField(max_length=20, null=True)
@@ -41,6 +43,16 @@ class UsersProfile(models.Model):
     class Meta:
         verbose_name = "User Profile"
         verbose_name_plural = "Users Profile"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['phone_number'],
+                name='unique_phone_number_constraint',
+                violation_error_message='This phone number is already registered.'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['phone_number']),
+        ]
 
     def __str__(self):
         """object return string"""

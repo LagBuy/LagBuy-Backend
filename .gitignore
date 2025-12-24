@@ -4,8 +4,9 @@ venv/
 .venv/
 env/
 
-# Local Visual Studio Code settings
+# Local settings
 .vscode/
+.zed/
 
 # Python cache files
 __pycache__/

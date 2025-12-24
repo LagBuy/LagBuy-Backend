@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.utils import timezone
+from django.core.mail import outbox
 import datetime
 
 from apps.userAuth.models import CustomUser, Role
@@ -151,7 +152,7 @@ class ProfileAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
+            "phone_number": "08098765432",
             "gender": "male",
             "dob": "2025-06-09",
             "roles": ["vendor"],
@@ -169,7 +170,7 @@ class ProfileAPITest(TestCase):
         self.assertIsNotNone(user_data["user_profile"])
         self.assertEqual(user_data["user_profile"]["first_name"], "string")
         self.assertEqual(user_data["user_profile"]["last_name"], "string")
-        self.assertEqual(user_data["user_profile"]["phone_number"], "08012345678")
+        self.assertEqual(user_data["user_profile"]["phone_number"], "08098765432")
         self.assertEqual(user_data["user_profile"]["gender"], "male")
         self.assertEqual(
             user_data["vendor_profile"]["business_name"], "Test business 2"
@@ -190,7 +191,7 @@ class ProfileAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
+            "phone_number": "08011111111",
             "gender": "male",
             "dob": "2025-06-09",
             "business_name": "Test business 2",
@@ -470,3 +471,138 @@ class SensitiveActionsForVendorTests(TestCase):
         self.assertEqual(self.vendorProfile.bank_code, "001")
         self.assertEqual(self.vendorProfile.account_number, "12345")
         self.assertIn("password", response.data)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend')
+class PhoneVerificationTests(TestCase):
+    """Tests for phone number verification system"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = CustomUser.objects.create_user(
+            email="testuser@example.com",
+            password="testpass123",
+        )
+        self.user_profile = UsersProfile.objects.create(
+            user=self.user,
+            first_name="Test",
+            last_name="User",
+            phone_number="08012345678",
+        )
+
+    def test_check_phone_available(self):
+        """Test checking if a phone number is available"""
+        response = self.client.get(
+            reverse_lazy("check-phone"),
+            {"phone_number": "08098765432"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["data"]["exists"])
+        self.assertEqual(response.data["data"]["phone_number"], "08098765432")
+
+    def test_check_phone_already_exists(self):
+        """Test checking if a phone number already exists"""
+        response = self.client.get(
+            reverse_lazy("check-phone"),
+            {"phone_number": "08012345678"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["data"]["exists"])
+
+    def test_check_phone_missing_parameter(self):
+        """Test checking phone without phone_number parameter"""
+        response = self.client.get(reverse_lazy("check-phone"))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("phone_number", response.data["message"])
+
+    def test_verify_phone_authenticated(self):
+        """Test verifying phone number when authenticated"""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(reverse_lazy("verify-phone"))
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["data"]["is_phone_verified"])
+        self.assertIsNotNone(response.data["data"]["phone_verified_at"])
+
+    def test_verify_phone_not_authenticated(self):
+        """Test verifying phone number without authentication"""
+        response = self.client.post(reverse_lazy("verify-phone"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_verify_phone_updates_timestamp(self):
+        """Test that phone_verified_at timestamp is set"""
+        self.client.force_authenticate(user=self.user)
+        before_verify = timezone.now()
+        response = self.client.post(reverse_lazy("verify-phone"))
+        after_verify = timezone.now()
+        
+        self.user_profile.refresh_from_db()
+        self.assertTrue(self.user_profile.is_phone_verified)
+        self.assertIsNotNone(self.user_profile.phone_verified_at)
+        self.assertGreaterEqual(self.user_profile.phone_verified_at, before_verify)
+        self.assertLessEqual(self.user_profile.phone_verified_at, after_verify)
+
+    def test_duplicate_phone_on_registration(self):
+        """Test that registration fails with duplicate phone number"""
+        from apps.userAuth.serializers import CustomRegisterSerializer
+        
+        data = {
+            "email": "another@example.com",
+            "password1": "testpass123",
+            "password2": "testpass123",
+            "first_name": "Another",
+            "last_name": "User",
+            "phone_number": "08012345678",  # Already used
+        }
+        
+        serializer = CustomRegisterSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("phone_number", serializer.errors)
+
+    def test_phone_number_unique_constraint(self):
+        """Test database unique constraint on phone_number"""
+        from django.db import IntegrityError
+        
+        with self.assertRaises(IntegrityError):
+            UsersProfile.objects.create(
+                user=CustomUser.objects.create_user(
+                    email="another@example.com",
+                    password="testpass123",
+                ),
+                first_name="Another",
+                last_name="User",
+                phone_number="08012345678",  # Duplicate
+            )
+
+    def test_new_user_phone_not_verified_by_default(self):
+        """Test that newly registered users have is_phone_verified=False"""
+        new_user = CustomUser.objects.create_user(
+            email="newuser@example.com",
+            password="testpass123",
+        )
+        new_profile = UsersProfile.objects.create(
+            user=new_user,
+            first_name="New",
+            last_name="User",
+            phone_number="08011111111",
+        )
+        
+        self.assertFalse(new_profile.is_phone_verified)
+        self.assertIsNone(new_profile.phone_verified_at)
+
+    def test_verify_phone_multiple_times(self):
+        """Test that phone can be verified multiple times"""
+        self.client.force_authenticate(user=self.user)
+        
+        # First verification
+        response1 = self.client.post(reverse_lazy("verify-phone"))
+        self.assertTrue(response1.data["data"]["is_phone_verified"])
+        timestamp1 = response1.data["data"]["phone_verified_at"]
+        
+        # Second verification
+        response2 = self.client.post(reverse_lazy("verify-phone"))
+        self.assertTrue(response2.data["data"]["is_phone_verified"])
+        timestamp2 = response2.data["data"]["phone_verified_at"]
+        
+        # Timestamps should be different (second one later)
+        self.assertNotEqual(timestamp1, timestamp2)
