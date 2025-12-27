@@ -1,7 +1,6 @@
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import generics
-from django.utils import timezone
 
 from apps.userAuth.permissions import IsASeller
 from common.utils.responses import customize_response, success_response, error_response
@@ -77,26 +76,6 @@ class FavouriteVendor(ModelViewSet):
             return error_response("Vendor not found", status_code=404)
 
 
-class VerifyPhoneNumberView(generics.GenericAPIView):
-    """Verify user's phone number"""
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        """Mark phone number as verified"""
-        user_profile = request.user.user_profile
-        user_profile.is_phone_verified = True
-        user_profile.phone_verified_at = timezone.now()
-        user_profile.save()
-        return success_response(
-            {
-                "is_phone_verified": True,
-                "phone_verified_at": user_profile.phone_verified_at,
-            },
-            "Phone number verified successfully",
-        )
-
-
 class UpdateVendorBankDetailsView(generics.UpdateAPIView):
     serializer_class = VendorBankDetailsUpdateSerializer
     permission_classes = [IsAuthenticated, IsASeller]
@@ -107,7 +86,6 @@ class UpdateVendorBankDetailsView(generics.UpdateAPIView):
 
 class CheckBusinessNameExists(ModelViewSet):
     """a view to check if a business name already exists"""
-
     serializer_class = VendorProfileSerializer
     permission_classes = [AllowAny]
     http_method_names = ["get"]
@@ -120,27 +98,6 @@ class CheckBusinessNameExists(ModelViewSet):
             return error_response(
                 "business_name query parameter is required", status_code=400
             )
-        exists = VendorsProfile.objects.filter(
-            business_name__iexact=business_name
-        ).exists()
+        exists = VendorsProfile.objects.filter(business_name__iexact=business_name).exists()
         data = {"business_name": business_name, "exists": exists}
         return success_response(data, "Business name existence checked successfully")
-
-
-class CheckPhoneNumberExists(generics.GenericAPIView):
-    """Check if a phone number is already registered"""
-
-    permission_classes = [AllowAny]
-
-    def get(self, request, *args, **kwargs):
-        """Check if phone number already exists"""
-        from .models import UsersProfile
-
-        phone_number = request.query_params.get("phone_number", None)
-        if phone_number is None:
-            return error_response(
-                "phone_number query parameter is required", status_code=400
-            )
-        exists = UsersProfile.objects.filter(phone_number=phone_number).exists()
-        data = {"phone_number": phone_number, "exists": exists}
-        return success_response(data, "Phone number existence checked successfully")
