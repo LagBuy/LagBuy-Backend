@@ -26,7 +26,7 @@ class CouponModelTest(TestCase):
             user=cls.seller,
             first_name="Seller",
             last_name="Test",
-            phone_number="0909333333",
+            phone_number="0909222002",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
@@ -110,7 +110,7 @@ class CouponAPITest(TestCase):
             user=cls.buyer,
             first_name="Buyer",
             last_name="Test",
-            phone_number="0909111111",
+            phone_number="0909222002",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
@@ -124,7 +124,7 @@ class CouponAPITest(TestCase):
             user=cls.seller,
             first_name="Seller",
             last_name="Test",
-            phone_number="0909222003",
+            phone_number="0909222002",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
@@ -139,7 +139,7 @@ class CouponAPITest(TestCase):
             user=cls.admin,
             first_name="Admin",
             last_name="Test",
-            phone_number="0202222334",
+            phone_number="0202222332",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )

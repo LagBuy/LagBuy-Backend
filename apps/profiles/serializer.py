@@ -11,8 +11,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "phone_number",
-            "is_phone_verified",
-            "phone_verified_at",
             "image",
             "address",
             "gender",
@@ -20,16 +18,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "state",
             "city",
         )
-        read_only_fields = [
-            "is_phone_verified",
-            "phone_verified_at",
-        ]
 
 
 class VendorProfileSerializer(serializers.ModelSerializer):
     # return the vendor owner's profile image (UsersProfile.image)
     image = serializers.SerializerMethodField(read_only=True)
-
     class Meta:
         model = VendorsProfile
         fields = (
