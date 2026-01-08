@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/riders/", include("apps.riders.urls"), name="riders"),
     path("api/v1/profiles/", include("apps.profiles.urls"), name="profiles"),
     path("api/v1/notifications/", include("apps.notifications.urls"), name="notifications"),
+    path("api/v1/referral/", include("apps.referral.urls"), name="referral"),
 
 
     # password reset
