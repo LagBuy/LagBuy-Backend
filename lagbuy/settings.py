@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     "apps.profiles",
     "apps.payments",
     "apps.notifications",
+    "apps.referrals",
     "common",
     "core",
 ]

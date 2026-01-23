@@ -37,6 +37,19 @@ class UsersProfile(models.Model):
     favorite_vendors = models.ManyToManyField(
         CustomUser, related_name="fans", blank=True
     )  # favorite vendors by the user
+    referral_code = models.CharField(max_length=12, unique=True, blank=True)
+    referred_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="referrals"
+    )
+    referral_type = models.CharField(
+        max_length=20,
+        choices=[("normal", "Normal"), ("influencer", "Influencer")],
+        default="normal"
+    )
 
     class Meta:
         verbose_name = "User Profile"
