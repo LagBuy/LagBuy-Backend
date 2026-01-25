@@ -23,3 +23,14 @@ class ReferralWalletTransactionSerializer(serializers.ModelSerializer):
             if profile:
                 return f"{profile.first_name} {profile.last_name}"
         return None
+
+
+class ReferralWalletSummarySerializer(serializers.Serializer):
+    current_balance = serializers.DecimalField(max_digits=18, decimal_places=2)
+    available_balance = serializers.DecimalField(max_digits=18, decimal_places=2)
+    product_bonus_balance = serializers.DecimalField(max_digits=18, decimal_places=2)
+    service_bonus_balance = serializers.DecimalField(max_digits=18, decimal_places=2)
+    pending_balance = serializers.DecimalField(max_digits=18, decimal_places=2)
+    total_earned = serializers.DecimalField(max_digits=18, decimal_places=2)
+    total_used = serializers.DecimalField(max_digits=18, decimal_places=2)
+    last_transaction_at = serializers.DateTimeField(allow_null=True)
