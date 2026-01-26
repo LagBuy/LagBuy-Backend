@@ -1,8 +1,10 @@
 from django.urls import path
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
-from .views import ReferralWalletHistoryView
+from .views import ReferralWalletHistoryView, ReferralWalletSummaryView
 
 urlpatterns = [
-    path("", ReferralWalletHistoryView.as_view(), name="referral-wallet-history"),
+    path("wallet/history/", ReferralWalletHistoryView.as_view(), name="referral-wallet-history"),
+    path("wallet/summary/", ReferralWalletSummaryView.as_view(), name="referral-wallet-summary"),
+    
 ]

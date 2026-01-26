@@ -48,59 +48,156 @@ class ReferralWalletOperationsTest(TestCase):
         )
         self.wallet = self.user.referral_wallet
 
-    def test_add_available_bonus(self):
-        """Tests the add_available_bonus method on the ref_wallet is working as expected"""
-        self.wallet.add_available_bonus(Decimal("500.00"), description="Referral Bonus")
+        self.wallet.add_pending_bonus(Decimal("500.00"), description="Pending referral")
 
-        self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.available_balance, Decimal("500.00"))
-        self.assertEqual(self.wallet.pending_balance, Decimal("0.00"))
+        self.wallet.add_available_bonus(
+            Decimal("300.00"),
+            description="Referral Bonus - Verification",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+        )
+
+        self.wallet.add_available_bonus(
+            Decimal("200.00"),
+            description="Referral Bonus - first product purchase done",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.SERVICE,
+        )
 
     def test_add_pending_bonus(self):
         """Tests the add_pending_bonus method on the ref_wallet"""
-        self.wallet.add_pending_bonus(Decimal("300.00"), description="Pending referral")
+        self.wallet.add_pending_bonus(Decimal("500.00"), description="Pending referral")
 
-        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.pending_balance, Decimal("500.00"))
 
-        self.assertEqual(self.wallet.pending_balance, Decimal("300.00"))
-        self.assertEqual(self.wallet.available_balance, Decimal("0.00"))
+    def test_add_available_bonus(self):
+        """
+        Tests the add_available_bonus method adds the correct bonuses
+        """
+
+        self.assertEqual(self.wallet.available_balance, Decimal("500.00"))
+        self.assertEqual(self.wallet.product_bonus_balance, Decimal("300.00"))
+        self.assertEqual(self.wallet.service_bonus_balance, Decimal("200.00"))
+
+        self.assertEqual(self.wallet.pending_balance, Decimal("0.00"))
+
+    def test_add_available_bonus_fail_insufficient_pending_bonus(self):
+        """
+        Tests the add-available_bonus method on the ref_wallet throws an error against insufficient pending_bal
+        """
+
+        with self.assertRaises(ValueError):
+            self.wallet.add_available_bonus(
+                Decimal("1000.00"),
+                description="Referral Bonus",
+                bonus_usage_type=ReferralWalletTransaction.BonusUsageType.SERVICE,
+            )
 
     def test_deduct_balance_success(self):
-        """Tests the deduct_bal method on the ref_wallet"""
-        self.wallet.add_available_bonus(Decimal("400.00"), description="Referral")
+        """
+        Tests the deduct method removes the correct bonuses
+        """
+        current_product_balance = self.wallet.product_bonus_balance
+        current_service_balance = self.wallet.service_bonus_balance
 
         self.wallet.deduct(
             amount=Decimal("150.00"),
             description="Order payment",
-            usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
         )
 
-        self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.available_balance, Decimal("250.00"))
-        self.assertEqual(self.wallet.total_used, Decimal("150.00"))
+        self.wallet.deduct(
+            amount=Decimal("200.00"),
+            description="Services payment",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.SERVICE,
+        )
+
+        self.assertEqual(self.wallet.available_balance, Decimal("150.00"))
+        self.assertEqual(self.wallet.product_bonus_balance, Decimal("150.00"))
+
+        self.assertNotEqual(current_product_balance, self.wallet.product_bonus_balance)
+        self.assertNotEqual(current_service_balance, self.wallet.service_bonus_balance)
+
+        self.assertEqual(self.wallet.total_used, Decimal("350.00"))
 
     def test_deduct_balance_insufficient_funds(self):
         """Tests the deduct_bal method on the ref_wallet throws an error against insufficient funds"""
-        self.wallet.add_available_bonus(
-            Decimal("100.00"),
-            description="Referral",
-        )
 
         with self.assertRaises(ValueError):
             self.wallet.deduct(
-                amount=Decimal("200.00"), description="Invalid deduction"
+                amount=Decimal("1000.00"),
+                description="Invalid deduction",
+                bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
             )
 
     def test_balance_computation_helpers(self):
         """Tests the summary computation helpers"""
-        self.wallet.add_available_bonus(Decimal("200.00"), "Bonus A")
-        self.wallet.add_pending_bonus(Decimal("100.00"), "Bonus B")
-        self.wallet.deduct(Decimal("50.00"), "Usage")
+        self.wallet.deduct(
+            amount=Decimal("200.00"),
+            description="Order payment",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.SERVICE,
+        )
 
-        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.total_earned, Decimal("500.00"))
+        self.assertEqual(self.wallet.current_balance, Decimal("300.00"))
 
-        self.assertEqual(self.wallet.total_earned, Decimal("300.00"))
-        self.assertEqual(self.wallet.current_balance, Decimal("250.00"))
+
+class ReferralWalletSummaryTest(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            email="user@test.com", password="password123"
+        )
+        self.client = APIClient()
+
+        self.client.force_authenticate(user=self.user)
+
+        self.wallet = self.user.referral_wallet
+
+        self.wallet.add_pending_bonus(
+            amount=Decimal("1000.00"),
+            description="Pending referral",
+        )
+        self.wallet.add_available_bonus(
+            Decimal("300.00"),
+            description="Referral Bonus - Verification complete",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+        )
+
+        self.wallet.add_available_bonus(
+            Decimal("200.00"),
+            description="Referral Bonus - first product purchase done",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.SERVICE,
+        )
+        self.wallet.deduct(
+            amount=Decimal("200.00"),
+            description="Used bonus",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+        )
+
+        self.url = reverse("referral-wallet-summary")
+
+    def test_get_wallet_summary_success(self):
+        """Tests the get ref_wallet summary endpoint"""
+        response = self.client.get(self.url)
+        print(self.url)
+        print(response.data)
+
+        data = response.data["data"]
+
+        # self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["current_balance"], "800.00")
+        self.assertEqual(data["available_balance"], "300.00")
+        self.assertEqual(data["product_bonus_balance"], "100.00")
+        self.assertEqual(data["service_bonus_balance"], "200.00")
+        self.assertEqual(data["pending_balance"], "500.00")
+        self.assertEqual(data["total_earned"], "1000.00")
+        self.assertEqual(data["total_used"], "200.00")
+        self.assertIsNotNone(data["last_transaction_at"])
+
+        # self.assertEqual(data["currency"], "NGN")
+
+    def test_wallet_summary_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
 
 
 class ReferralWalletTransactionsTest(TestCase):
@@ -113,29 +210,36 @@ class ReferralWalletTransactionsTest(TestCase):
         self.client.force_authenticate(user=self.user)
         self.wallet = self.user.referral_wallet
 
-    def test_add_available_bonus_creates_transaction(self):
-        self.wallet.add_available_bonus(
-            amount=Decimal("500.00"),
-            description="Referral bonus",
-        )
-
-        trx = ReferralWalletTransaction.objects.get(wallet=self.wallet)
-
-        self.assertEqual(trx.amount, Decimal("500.00"))
-        self.assertEqual(
-            trx.transaction_type, ReferralWalletTransaction.TransactionType.ADDITION
-        )
-        self.assertEqual(trx.description, "Referral bonus")
-
-    def test_add_pending_bonus_creates_pending_transaction(self):
         self.wallet.add_pending_bonus(
-            amount=Decimal("200.00"),
+            Decimal("500.00"),
             description="Pending referral",
         )
 
+    def test_add_available_bonus_creates_transaction(self):
+        self.wallet.add_available_bonus(
+            Decimal("300.00"),
+            description="Referral Bonus - Verification done",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+        )
+
+        trx = ReferralWalletTransaction.objects.get(
+            wallet=self.wallet,
+            transaction_type=ReferralWalletTransaction.TransactionType.ADDITION,
+        )
+
+        self.assertEqual(trx.amount, Decimal("300.00"))
+        self.assertEqual(
+            trx.transaction_type, ReferralWalletTransaction.TransactionType.ADDITION
+        )
+        self.assertEqual(trx.description, "Referral Bonus - Verification done")
+        self.assertEqual(self.wallet.available_balance, Decimal("300.00"))
+        self.assertEqual(self.wallet.product_bonus_balance, Decimal("300.00"))
+        self.assertEqual(self.wallet.pending_balance, Decimal("200.00"))
+
+    def test_add_pending_bonus_creates_pending_transaction(self):
         trx = ReferralWalletTransaction.objects.get(wallet=self.wallet)
 
-        self.assertEqual(trx.amount, Decimal("200.00"))
+        self.assertEqual(trx.amount, Decimal("500.00"))
         self.assertEqual(
             trx.transaction_type, ReferralWalletTransaction.TransactionType.PENDING
         )
@@ -147,19 +251,23 @@ class ReferralWalletTransactionsTest(TestCase):
             delivery_address="Test address",
         )
 
-        self.wallet.add_available_bonus(Decimal("500.00"), "Bonus")
+        self.wallet.add_available_bonus(
+            Decimal("300.00"),
+            description="Referral Bonus - Verification done",
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+        )
 
         self.wallet.deduct(
             amount=Decimal("150.00"),
             description="Order payment",
             order=order,
-            usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
+            bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
         )
 
         trx = ReferralWalletTransaction.objects.filter(
             transaction_type=ReferralWalletTransaction.TransactionType.DEDUCTION
         ).get()
-        print(trx)
+        # print(trx)
         self.assertEqual(trx.order, order)
         self.assertEqual(trx.amount, Decimal("150.00"))
 
@@ -167,11 +275,14 @@ class ReferralWalletTransactionsTest(TestCase):
         for i in range(25):
             self.wallet.add_available_bonus(
                 Decimal("10.00"),
-                description=f"Bonus {i}",
+                description="Referral Bonus",
+                bonus_usage_type=ReferralWalletTransaction.BonusUsageType.PRODUCT,
             )
 
         url = reverse("referral-wallet-history")
+        print(url)
         response = self.client.get(url)
 
+        # print(response.data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 20)

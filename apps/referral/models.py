@@ -23,6 +23,15 @@ class ReferralWallet(models.Model):
     pending_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_used = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
+    # add available bonus type balance here, in which
+    # the addition of both bonus_type is equal the main available bal
+    product_bonus_balance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    service_bonus_balance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -52,16 +61,43 @@ class ReferralWallet(models.Model):
 
     @transaction.atomic
     def add_available_bonus(
-        self, amount: Decimal, description: str = "", referred_user=None
+        self,
+        amount: Decimal,
+        bonus_usage_type: str,
+        description: str = "",
+        referred_user: str | None = None,
     ):
         amount = Decimal(amount)
         if amount <= 0:
             raise ValueError("Amount must be positive")
 
+        if amount > self.pending_balance:
+            raise ValueError("Insufficient pending referral balance")
+
+        if bonus_usage_type not in ReferralWalletTransaction.BonusUsageType.values:
+            raise ValueError("Invalid bonus usage type")
+
+        BONUS_FIELD_MAP = {
+            ReferralWalletTransaction.BonusUsageType.PRODUCT: "product_bonus_balance",
+            ReferralWalletTransaction.BonusUsageType.SERVICE: "service_bonus_balance",
+        }
+        bonus_field = BONUS_FIELD_MAP[bonus_usage_type]
+
         self.__class__.objects.filter(pk=self.pk).update(
-            available_balance=F("available_balance") + amount
+            available_balance=F("available_balance") + amount,
+            pending_balance=F("pending_balance") - amount,
+            **{bonus_field: F(bonus_field) + amount},
         )
-        self.refresh_from_db(fields=["available_balance"])
+
+        self.refresh_from_db(
+            fields=["available_balance", "pending_balance", bonus_field]
+        )
+
+        # Invariant safety check - optional tho but for more safety
+        if self.available_balance != (
+            self.product_bonus_balance + self.service_bonus_balance
+        ):
+            raise RuntimeError("Wallet balance invariant violated")
 
         # Log the TRX using FUNC
         self._log_transaction(
@@ -69,6 +105,7 @@ class ReferralWallet(models.Model):
             transaction_type=ReferralWalletTransaction.TransactionType.ADDITION,
             description=description,
             referred_user=referred_user,
+            bonus_usage_type=bonus_usage_type,
         )
 
     @transaction.atomic
@@ -94,7 +131,7 @@ class ReferralWallet(models.Model):
 
     @transaction.atomic
     def deduct(
-        self, amount: Decimal, description: str = "", usage_type=None, order=None
+        self, amount: Decimal, bonus_usage_type: str, description: str = "", order=None
     ):
         amount = Decimal(amount)
         if amount <= 0:
@@ -103,23 +140,31 @@ class ReferralWallet(models.Model):
         if amount > self.available_balance:
             raise ValueError("Insufficient referall balance")
 
+        if bonus_usage_type not in ReferralWalletTransaction.BonusUsageType.values:
+            raise ValueError("Invalid bonus usage type")
+
+        BONUS_FIELD_MAP = {
+            ReferralWalletTransaction.BonusUsageType.PRODUCT: "product_bonus_balance",
+            ReferralWalletTransaction.BonusUsageType.SERVICE: "service_bonus_balance",
+        }
+        bonus_field = BONUS_FIELD_MAP[bonus_usage_type]
+
+        print(bonus_field, "bonus field")
+
         self.__class__.objects.filter(pk=self.pk).update(
             available_balance=F("available_balance") - amount,
             total_used=F("total_used") + amount,
+            **{bonus_field: F(bonus_field) - amount},
         )
 
-        self.refresh_from_db(fields=["available_balance", "total_used"])
-        
-        # compute usage_type
-
-        # compute order
+        self.refresh_from_db(fields=["available_balance", "total_used", bonus_field])
 
         # Log the TRX using FUNC
         self._log_transaction(
             amount=amount,
             transaction_type=ReferralWalletTransaction.TransactionType.DEDUCTION,
             description=description,
-            bonus_usage_type=usage_type,
+            bonus_usage_type=bonus_usage_type,
             order=order,
         )
 
@@ -159,7 +204,9 @@ class ReferralWalletTransaction(models.Model):
 
     transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
 
-    bonus_usage_type = models.CharField(max_length=20, choices=BonusUsageType.choices, null=True)
+    bonus_usage_type = models.CharField(
+        max_length=20, choices=BonusUsageType.choices, null=True
+    )
 
     # Optional relations
     order = models.ForeignKey(
