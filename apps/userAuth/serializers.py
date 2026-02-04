@@ -10,6 +10,7 @@ from apps.profiles.models import UsersProfile, VendorsProfile, RidersProfile
 from apps.profiles.serializer import (UserProfileSerializer,
                                       VendorProfileSerializer,
                                       RiderProfileSerializer)
+from apps.referral.models import ReferralProfile, ReferralWalletTransaction
 
 
 class CustomRegisterSerializer(RegisterSerializer):
@@ -19,7 +20,13 @@ class CustomRegisterSerializer(RegisterSerializer):
     roles = serializers.SlugRelatedField(
         many=True, slug_field='name', queryset=Role.objects.all(), required=False
     )
-
+    referral_code = serializers.CharField(
+        max_length=20, 
+        required=False, 
+        allow_null=True, 
+        allow_blank=True, 
+        write_only=True
+    )
     # user profile
     first_name = serializers.CharField(max_length=225, required=True)
     last_name = serializers.CharField(max_length=225, required=True)
@@ -54,7 +61,6 @@ class CustomRegisterSerializer(RegisterSerializer):
     account_number = serializers.CharField(max_length=20, required=False)
     account_name = serializers.CharField(max_length=225, required=False)
 
-
     def validate(self, data):
         """Override the default behaviour of checking for
         password1 and password2"""
@@ -87,7 +93,30 @@ class CustomRegisterSerializer(RegisterSerializer):
         
         try:
             user = super().save(request)
+            #referral logic 
+            ref_code = self.validated_data.get('referral_code')
+            if ref_code:
+                try:
+                    # Find the referrer
+                    referrer_profile = ReferralProfile.objects.get(referral_code=ref_code)
+                    referrer_user = referrer_profile.user
+                    
+                    # Link the new user to the referrer in their ReferralProfile
+                    # (The profile is created automatically via signals)
+                    my_referral_profile = user.referral_profile
+                    my_referral_profile.referred_by = referrer_user
+                    my_referral_profile.save()
 
+                    # Track the total referral bonus as PENDING (300 + 200 = 500)
+                    # Use the wallet method from your models.py
+                    referrer_user.referral_wallet.add_pending_bonus(
+                        amount=500,
+                        description=f"Pending bonus for referring {user.email}",
+                        referred_user=user
+                    )
+                except ReferralProfile.DoesNotExist:
+                    # If code is invalid, we don't want to crash signup
+                    pass
             for role_name in roles:
                 if role_name in ['user', 'vendor', 'rider']:
                     role, _ = Role.objects.get_or_create(name=role_name.lower())
@@ -159,6 +188,7 @@ class CustomRegisterSerializer(RegisterSerializer):
             if "email" in str(e):
                 raise UserAlreadyExist()
             raise e
+
 
 class CustomUserSerializer(serializers.ModelSerializer):
     """Custom user serializer class"""
