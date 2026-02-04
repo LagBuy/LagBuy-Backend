@@ -2,17 +2,17 @@ branch-defaults:
   dev:
     environment: null
   prod:
-    environment: lagbuy-env
+    environment: LagBuy-Backend
     group_suffix: null
 environment-defaults:
   django-backend-env:
     branch: null
     repository: null
 global:
-  application_name: LagBuy-Backend
+  application_name: LagBuy-Backend-env
   branch: null
   default_ec2_keyname: aws-eb
-  default_platform: Python 3.12 running on 64bit Amazon Linux 2023
+  default_platform: Python 3.12
   default_region: af-south-1
   include_git_submodules: true
   instance_profile: null
