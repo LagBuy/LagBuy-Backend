@@ -606,7 +606,7 @@ class AdminEmailUtilsTestCase(TestCase):
             user=self.vendor,
             first_name='John',
             last_name='Vendor',
-            phone_number='08012345678'
+            phone_number='08012345679'
         )
         self.vendor_profile = VendorsProfile.objects.create(
             user=self.vendor,
@@ -625,7 +625,7 @@ class AdminEmailUtilsTestCase(TestCase):
             user=self.buyer,
             first_name='Jane',
             last_name='Buyer',
-            phone_number='08087654321'
+            phone_number='08087654322'
         )
         
         # Create product

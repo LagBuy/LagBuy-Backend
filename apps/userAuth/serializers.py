@@ -25,6 +25,12 @@ class CustomRegisterSerializer(RegisterSerializer):
     last_name = serializers.CharField(max_length=225, required=True)
     phone_number = serializers.CharField(max_length=20, required=True)
     image = serializers.URLField(max_length=500, required=False, allow_null=True, allow_blank=True)
+
+    def validate_phone_number(self, value):
+        """Validate that phone number is not already registered"""
+        if UsersProfile.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("This phone number is already registered.")
+        return value
     address = serializers.CharField(max_length=225, required=False, allow_null=True)
     gender = serializers.CharField(max_length=20, required=False, allow_null=True)
     dob = serializers.DateField(required=False, allow_null=True)
@@ -94,7 +100,7 @@ class CustomRegisterSerializer(RegisterSerializer):
                     user.roles.add(role)
 
             try:
-                UsersProfile.objects.create(
+                user_profile = UsersProfile.objects.create(
                     user=user,
                     first_name=self.validated_data.get('first_name', ''),
                     last_name=self.validated_data.get('last_name', ''),
@@ -106,6 +112,12 @@ class CustomRegisterSerializer(RegisterSerializer):
                     city=self.validated_data.get('city', ''),
                     state=self.validated_data.get('state', '')
                 )
+                
+                # Generate and send phone verification code
+                verification_code = user_profile.generate_phone_verification_code()
+                # TODO: Send verification code via SMS/Email to phone_number
+                # Example: send_sms_verification_code(user_profile.phone_number, verification_code)
+                
             except Exception as e:
                 user.delete()
                 raise e

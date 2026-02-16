@@ -11,12 +11,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "phone_number",
+            "phone_verified",
             "image",
             "address",
             "gender",
             "dob",
             "state",
             "city",
+        )
+        read_only_fields = (
+            "phone_verified",
         )
 
 
@@ -103,3 +107,37 @@ class VendorBankDetailsUpdateSerializer(serializers.Serializer):
             setattr(instance, attr, val)
         instance.save(update_fields=validated_data.keys())
         return instance
+
+
+class SendPhoneVerificationCodeSerializer(serializers.Serializer):
+    """Serializer for sending phone verification code"""
+    phone_number = serializers.CharField(max_length=20)
+
+    def validate_phone_number(self, value):
+        """Validate that phone number is not already verified and registered"""
+        try:
+            user_profile = UsersProfile.objects.get(phone_number=value)
+            if user_profile.phone_verified:
+                raise serializers.ValidationError(
+                    "This phone number is already verified on another account."
+                )
+        except UsersProfile.DoesNotExist:
+            pass
+        return value
+
+
+class VerifyPhoneCodeSerializer(serializers.Serializer):
+    """Serializer for verifying phone code"""
+    phone_number = serializers.CharField(max_length=20)
+    code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate_code(self, value):
+        """Validate that code is numeric"""
+        if not value.isdigit():
+            raise serializers.ValidationError("Verification code must be numeric.")
+        return value
+
+
+class ResendPhoneVerificationCodeSerializer(serializers.Serializer):
+    """Serializer for resending phone verification code"""
+    phone_number = serializers.CharField(max_length=20)

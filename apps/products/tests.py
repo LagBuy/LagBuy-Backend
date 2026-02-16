@@ -128,6 +128,12 @@ class ProductAPITest(TestCase):
             email="seller@example.com",
             password="password",
         )
+        UsersProfile.objects.create(
+            user=cls.seller,
+            first_name="Seller",
+            last_name="User",
+            phone_number="09876543210"
+        )
         VendorsProfile.objects.create(
             user=cls.seller,
             business_name="Seller Business",
@@ -148,7 +154,7 @@ class ProductAPITest(TestCase):
             user=cls.buyer,
             first_name="Buyer",
             last_name="User",
-            phone_number="1234567890"
+            phone_number="09876543211"
         )
 
         cls.category = Category.objects.create(

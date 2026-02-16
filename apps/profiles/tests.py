@@ -151,7 +151,7 @@ class ProfileAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
+            "phone_number": "08011223344",
             "gender": "male",
             "dob": "2025-06-09",
             "roles": ["vendor"],
@@ -169,7 +169,7 @@ class ProfileAPITest(TestCase):
         self.assertIsNotNone(user_data["user_profile"])
         self.assertEqual(user_data["user_profile"]["first_name"], "string")
         self.assertEqual(user_data["user_profile"]["last_name"], "string")
-        self.assertEqual(user_data["user_profile"]["phone_number"], "08012345678")
+        self.assertEqual(user_data["user_profile"]["phone_number"], "08011223344")
         self.assertEqual(user_data["user_profile"]["gender"], "male")
         self.assertEqual(
             user_data["vendor_profile"]["business_name"], "Test business 2"
@@ -190,7 +190,7 @@ class ProfileAPITest(TestCase):
             "password1": "testpassword123",
             "first_name": "string",
             "last_name": "string",
-            "phone_number": "08012345678",
+            "phone_number": "08055667788",
             "gender": "male",
             "dob": "2025-06-09",
             "business_name": "Test business 2",
