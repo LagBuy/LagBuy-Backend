@@ -26,7 +26,7 @@ class CartAPITest(TestCase):
         )
         cls.user.roles.add(cls.user_role)
         UsersProfile.objects.create(
-            user=cls.user, first_name="Test", last_name="User"
+            user=cls.user, first_name="Test", last_name="User", phone_number="08012345677"
         )
 
         cls.other_user = CustomUser.objects.create_user(

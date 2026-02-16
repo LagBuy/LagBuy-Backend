@@ -110,7 +110,7 @@ class CouponAPITest(TestCase):
             user=cls.buyer,
             first_name="Buyer",
             last_name="Test",
-            phone_number="0909222002",
+            phone_number="09092220021",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )
@@ -124,7 +124,7 @@ class CouponAPITest(TestCase):
             user=cls.seller,
             first_name="Seller",
             last_name="Test",
-            phone_number="0909222002",
+            phone_number="09092220022",
             gender='male',
             dob=datetime.date(2020, 7, 12),
         )

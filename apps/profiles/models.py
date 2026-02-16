@@ -1,4 +1,5 @@
 import uuid
+import secrets
 
 from django.db import models
 from django.db.models.functions import Lower
@@ -16,7 +17,10 @@ class UsersProfile(models.Model):
     )
     first_name = models.CharField(max_length=225)
     last_name = models.CharField(max_length=225)
-    phone_number = models.CharField(max_length=20, null=False)
+    phone_number = models.CharField(max_length=20, null=False, unique=True)
+    phone_verified = models.BooleanField(default=False)
+    phone_verification_code = models.CharField(max_length=6, null=True, blank=True)
+    phone_code_expires_at = models.DateTimeField(null=True, blank=True)
     gender = models.CharField(max_length=20, null=True)
     dob = models.DateField(null=True)
     state = models.CharField(max_length=20, null=True)
@@ -45,6 +49,35 @@ class UsersProfile(models.Model):
     def __str__(self):
         """object return string"""
         return f"User Profile: {self.first_name} {self.last_name} [{self.user.email}]"
+
+    def generate_phone_verification_code(self):
+        """Generate a 6-digit OTP for phone verification"""
+        code = str(secrets.randbelow(1000000)).zfill(6)
+        self.phone_verification_code = code
+        self.phone_code_expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        self.save()
+        return code
+
+    def is_phone_code_valid(self, code):
+        """Check if the provided code is valid and not expired"""
+        if not self.phone_verification_code or not self.phone_code_expires_at:
+            return False
+        
+        if timezone.now() > self.phone_code_expires_at:
+            return False
+        
+        return self.phone_verification_code == code
+
+    def verify_phone(self, code):
+        """Verify phone number with the provided code"""
+        if not self.is_phone_code_valid(code):
+            return False
+        
+        self.phone_verified = True
+        self.phone_verification_code = None
+        self.phone_code_expires_at = None
+        self.save()
+        return True
 
 
 class VendorsProfile(models.Model):

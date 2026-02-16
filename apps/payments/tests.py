@@ -30,7 +30,7 @@ class InitializeTransactionViewTestCase(APITestCase):
         self.user = CustomUser.objects.create_user(
             email="test@example.com", password="testpass123"
         )
-        UsersProfile.objects.create(user=self.user, first_name="Test", last_name="User")
+        UsersProfile.objects.create(user=self.user, first_name="Test", last_name="User", phone_number="08012345671")
         self.order = Order.objects.create(
             buyer=self.user, delivery_address="123 Test Street"
         )
@@ -264,7 +264,7 @@ class VerifyPaymentViewTestCase(APITestCase):
         vendor = CustomUser.objects.create_user(
             email="vendor@test.com", password="testpass123"
         )
-        UsersProfile.objects.create(user=vendor, first_name="Vendor", last_name="User")
+        UsersProfile.objects.create(user=vendor, first_name="Vendor", last_name="User", phone_number="08012345672")
         
         # Create product for vendor
         product = Product.objects.create(
@@ -321,7 +321,7 @@ class VerifyPaymentViewTestCase(APITestCase):
         vendor1 = CustomUser.objects.create_user(
             email="vendor1@test.com", password="testpass123"
         )
-        UsersProfile.objects.create(user=vendor1, first_name="Vendor", last_name="One")
+        UsersProfile.objects.create(user=vendor1, first_name="Vendor", last_name="One", phone_number="08012345673")
         
         # Create product for vendor
         product1 = Product.objects.create(
@@ -390,7 +390,8 @@ class VerifyPaymentViewTestCase(APITestCase):
         vendor_user_profile = UsersProfile.objects.create(
             user=vendor, 
             first_name="Vendor", 
-            last_name="User"
+            last_name="User",
+            phone_number="08012345674"
         )
         vendor_profile = VendorsProfile.objects.create(
             user=vendor,
@@ -404,7 +405,8 @@ class VerifyPaymentViewTestCase(APITestCase):
         buyer_profile = UsersProfile.objects.create(
             user=self.user,
             first_name="Buyer",
-            last_name="User"
+            last_name="User",
+            phone_number="08012345675"
         )
         
         # Create product for vendor
@@ -478,7 +480,8 @@ class VerifyPaymentViewTestCase(APITestCase):
         UsersProfile.objects.create(
             user=vendor,
             first_name="Vendor",
-            last_name="User"
+            last_name="User",
+            phone_number="08012345676"
         )
         VendorsProfile.objects.create(
             user=vendor,
