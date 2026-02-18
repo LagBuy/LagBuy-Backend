@@ -107,10 +107,10 @@ class CustomRegisterSerializer(RegisterSerializer):
                     my_referral_profile.referred_by = referrer_user
                     my_referral_profile.save()
 
-                    # Track the total referral bonus as PENDING (300 + 200 = 500)
                     # Use the wallet method from your models.py
+                    reward_amount = referrer_profile.get_referral_reward_amount()
                     referrer_user.referral_wallet.add_pending_bonus(
-                        amount=500,
+                        amount=reward_amount,
                         description=f"Pending bonus for referring {user.email}",
                         referred_user=user
                     )
