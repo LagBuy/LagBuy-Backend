@@ -4,6 +4,80 @@ from django.db import models, transaction
 from django.db.models import F
 from django.conf import settings
 from django.utils import timezone
+import secrets
+import string
+from django.conf import settings
+
+class ReferralProfile(models.Model):
+    """
+    Extensions to the CustomUser to handle referral codes and status.
+    """
+    # Define the types clearly
+    class ReferralType(models.TextChoices):
+        NORMAL = 'normal', 'Normal User'
+        INFLUENCER = 'influencer', 'Influencer'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Link to your CustomUser
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="referral_profile",
+    )
+
+    # The code this user shares
+    referral_code = models.CharField(
+        max_length=20, 
+        unique=True, 
+        db_index=True
+    )
+
+    # Who referred this user?
+    referred_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="referees"
+    )
+
+    # The requirement: Track Influencer vs Normal
+    referral_type = models.CharField(
+        max_length=20, 
+        choices=ReferralType.choices, 
+        default=ReferralType.NORMAL
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-generate code if not present
+        if not self.referral_code:
+            self.referral_code = self._generate_unique_code()
+        super().save(*args, **kwargs)
+
+    def _generate_unique_code(self):
+        """Generate a random 8-char code and ensure it's unique."""
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(secrets.choice(chars) for _ in range(8))
+            # Check if this code already exists in DB to avoid crash
+            if not ReferralProfile.objects.filter(referral_code=code).exists():
+                return code
+
+    def get_referral_reward_amount(self):
+        """
+        Centralized logic for how much this user earns per referral.
+        This makes changing prices later very easy.
+        """
+        if self.referral_type == self.ReferralType.INFLUENCER:
+            return 1000  # Influencers get 1000 (Example)
+        return 300       # Normal users get 300 (Requirement)
+
+    def __str__(self):
+        return f"{self.user.email} [{self.referral_type}]"
 
 
 class ReferralWallet(models.Model):
@@ -239,3 +313,4 @@ class ReferralWalletTransaction(models.Model):
         return (
             f"{self.transaction_type.upper()} {self.amount} ({self.bonus_usage_type})"
         )
+
